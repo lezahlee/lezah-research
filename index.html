@@ -432,37 +432,114 @@ async function generate() {
   dlBtn.style.display = "block";
 }
 
-async function downloadPDF() {
+function downloadPDF() {
   const company = document.getElementById("company").value.trim();
   const sector  = document.getElementById("sector").value.trim();
   const date    = new Date().toLocaleDateString("en-US",{month:"long",day:"numeric",year:"numeric"});
-  const dlBtn   = document.getElementById("dl-btn");
-
-  dlBtn.disabled = true; dlBtn.textContent = "GENERATING PDF...";
-
   const uniqueSources = allSources.filter((s,i,a) => a.findIndex(x => x.url===s.url)===i).slice(0,12);
 
-  try {
-    const res = await fetch("/.netlify/functions/pdf", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ company, sector, date, results, sources: uniqueSources })
-    });
+  const SECTION_LABELS = {
+    snapshot:"Company Snapshot", market:"Market Sizing", competitive:"Competitive Landscape",
+    channel:"Channel & Distribution", consumer:"Consumer Trends",
+    supplychain:"Supply Chain & Raw Material Inputs", founder:"Founder Diligence",
+    management:"Management Team Overview", lezahfit:"Fit with Lezah Capital"
+  };
 
-    if (!res.ok) throw new Error("PDF generation failed");
-
-    const blob = await res.blob();
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement("a");
-    a.href = url;
-    a.download = `${company.replace(/[^a-zA-Z0-9]/g,"_")}_Lezah_Research.pdf`;
-    a.click();
-    URL.revokeObjectURL(url);
-  } catch(e) {
-    alert("PDF error: " + e.message);
+  function cleanMd(text) {
+    return (text||"")
+      .replace(/#{1,6}\s+/g,"")
+      .replace(/\*\*(.+?)\*\*/g,"$1")
+      .replace(/\*(.+?)\*/g,"$1")
+      .replace(/^[-]\s+/gm,"• ")
+      .replace(/
+{3,}/g,"\n\n")
+      .trim();
   }
 
-  dlBtn.disabled = false; dlBtn.textContent = "DOWNLOAD PDF";
+  let sectionsHtml = "";
+  const ORDER = ["snapshot","market","competitive","channel","consumer","supplychain","founder","management","lezahfit"];
+  for (const id of ORDER) {
+    if (!results[id]) continue;
+    const cleaned = cleanMd(results[id]);
+    const paragraphs = cleaned.split("\n\n").map(p => {
+      const lines = p.split("\n").map(ln => {
+        if (ln.startsWith("• ")) return `<li>${ln.slice(2)}</li>`;
+        return `<p>${ln}</p>`;
+      });
+      const hasLi = lines.some(l => l.startsWith("<li>"));
+      if (hasLi) return `<ul>${lines.join("")}</ul>`;
+      return lines.join("");
+    }).join("");
+
+    sectionsHtml += `
+      <div class="section">
+        <div class="section-head">${(SECTION_LABELS[id]||id).toUpperCase()}</div>
+        <div class="section-body">${paragraphs}</div>
+      </div>`;
+  }
+
+  let sourcesHtml = "";
+  if (uniqueSources.length) {
+    sourcesHtml = `<div class="sources"><div class="sources-title">SOURCES</div>` +
+      uniqueSources.map((s,i) => `<div class="source">[${i+1}] <a href="${s.url}">${s.title}</a></div>`).join("") +
+      `</div>`;
+  }
+
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+<title>${company} -- Lezah Capital Research</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Barlow', sans-serif; background: #fff; color: #1C2B3A; }
+  .header { background: #0D1B2A; padding: 20px 40px 16px; }
+  .logo-text { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 13px; color: #4EA8B4; letter-spacing: 0.06em; margin-bottom: 6px; }
+  .company-name { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 26px; color: #fff; letter-spacing: 0.02em; }
+  .sector { font-size: 11px; color: #4EA8B4; margin-top: 4px; letter-spacing: 0.06em; text-transform: uppercase; }
+  .tagline { background: #F4F6F8; padding: 8px 40px; font-size: 8px; color: #C49C52; letter-spacing: 0.1em; text-transform: uppercase; border-bottom: 1px solid #DDE3E8; }
+  .content { padding: 20px 40px 30px; }
+  .section { margin-bottom: 16px; border: 0.5px solid #DDE3E8; border-radius: 6px; overflow: hidden; page-break-inside: avoid; }
+  .section-head { background: #F4F6F8; padding: 8px 14px; font-size: 8px; font-weight: 600; color: #4EA8B4; letter-spacing: 0.1em; border-bottom: 0.5px solid #DDE3E8; border-left: 3px solid #4EA8B4; }
+  .section-body { padding: 12px 14px; font-size: 10px; line-height: 1.75; color: #1C2B3A; }
+  .section-body p { margin-bottom: 6px; }
+  .section-body p:last-child { margin-bottom: 0; }
+  .section-body ul { padding-left: 16px; margin-bottom: 6px; }
+  .section-body li { margin-bottom: 3px; }
+  .sources { margin-top: 20px; padding-top: 14px; border-top: 0.5px solid #DDE3E8; }
+  .sources-title { font-size: 8px; font-weight: 600; color: #8A9BAA; letter-spacing: 0.1em; margin-bottom: 8px; }
+  .source { font-size: 8.5px; color: #8A9BAA; margin-bottom: 4px; }
+  .source a { color: #4EA8B4; text-decoration: none; }
+  .footer { margin-top: 20px; padding: 10px 40px; border-top: 0.5px solid #DDE3E8; display: flex; justify-content: space-between; font-size: 8px; color: #8A9BAA; letter-spacing: 0.05em; text-transform: uppercase; }
+  @media print {
+    @page { margin: 0.5in; size: letter; }
+    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .no-print { display: none; }
+    .section { page-break-inside: avoid; }
+  }
+</style>
+</head><body>
+<div class="no-print" style="background:#0D1B2A;color:#4EA8B4;padding:10px 40px;font-size:12px;font-family:Barlow,sans-serif;">
+  Print this page or save as PDF (File > Print > Save as PDF)
+  &nbsp;&nbsp;<button onclick="window.print()" style="background:#4EA8B4;color:#0D1B2A;border:none;padding:6px 14px;cursor:pointer;font-weight:600;border-radius:4px;">Save as PDF</button>
+</div>
+<div class="header">
+  <div class="logo-text">LEZAH CAPITAL &nbsp;·&nbsp; A BUILDERS' FAMILY OFFICE</div>
+  <div class="company-name">${company.toUpperCase()}</div>
+  ${sector ? `<div class="sector">${sector}</div>` : ""}
+</div>
+<div class="tagline">Investment Research Report &nbsp;·&nbsp; Consumer / CPG &nbsp;·&nbsp; ${date}</div>
+<div class="content">
+  ${sectionsHtml}
+  ${sourcesHtml}
+</div>
+<div class="footer">
+  <span>Lezah Capital &nbsp;·&nbsp; Confidential &nbsp;·&nbsp; For Internal Use Only</span>
+  <span>${date}</span>
+</div>
+</body></html>`;
+
+  const blob = new Blob([html], { type: "text/html" });
+  const url  = URL.createObjectURL(blob);
+  window.open(url, "_blank");
 }
 </script>
 </body>
