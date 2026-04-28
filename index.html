@@ -7,274 +7,142 @@
 <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@600;700&display=swap" rel="stylesheet">
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
   :root {
-    --navy: #0D1B2A;
-    --navy-mid: #1A3040;
-    --navy-light: #243B50;
-    --teal: #4EA8B4;
-    --teal-light: #7FCAD3;
-    --gold: #C49C52;
-    --white: #FFFFFF;
-    --bg: #F4F6F8;
-    --card: #FFFFFF;
-    --border: #DDE3E8;
-    --text: #1C2B3A;
-    --muted: #8A9BAA;
-    --danger: #C0392B;
+    --navy: #0D1B2A; --navy-mid: #1A3040;
+    --teal: #4EA8B4; --teal-light: #7FCAD3;
+    --gold: #C49C52; --white: #FFFFFF;
+    --bg: #F4F6F8; --card: #FFFFFF;
+    --border: #DDE3E8; --text: #1C2B3A;
+    --muted: #8A9BAA; --danger: #C0392B;
   }
-
-  body {
-    font-family: 'Barlow', sans-serif;
-    background: var(--bg);
-    color: var(--text);
-    min-height: 100vh;
-  }
-
-  /* ── Header ── */
+  body { font-family: 'Barlow', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
   .header {
-    background: var(--navy);
-    padding: 0 2rem;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    height: 60px;
-    position: sticky;
-    top: 0;
-    z-index: 100;
+    background: var(--navy); padding: 0 2rem;
+    display: flex; align-items: center; justify-content: space-between;
+    height: 60px; position: sticky; top: 0; z-index: 100;
     border-bottom: 1px solid rgba(78,168,180,0.2);
   }
   .logo { display: flex; align-items: center; gap: 10px; }
   .logo svg { width: 28px; height: 28px; }
   .logo-text { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 15px; color: var(--teal); letter-spacing: 0.06em; }
   .header-tag { font-size: 11px; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; }
-
-  /* ── Layout ── */
-  .main { display: grid; grid-template-columns: 320px 1fr; min-height: calc(100vh - 60px); }
-
-  /* ── Sidebar ── */
+  .main { display: grid; grid-template-columns: 300px 1fr; min-height: calc(100vh - 60px); }
   .sidebar {
-    background: var(--navy);
-    padding: 1.5rem;
+    background: var(--navy); padding: 1.25rem;
     border-right: 1px solid rgba(78,168,180,0.15);
-    position: sticky;
-    top: 60px;
-    height: calc(100vh - 60px);
-    overflow-y: auto;
+    position: sticky; top: 60px; height: calc(100vh - 60px); overflow-y: auto;
   }
-  .sidebar-section { margin-bottom: 1.5rem; }
-  .sidebar-label {
-    font-size: 9px; font-weight: 600; color: var(--teal);
-    letter-spacing: 0.12em; text-transform: uppercase;
-    margin-bottom: 8px;
-  }
-  .input-group { margin-bottom: 10px; }
+  .sidebar-section { margin-bottom: 1.25rem; }
+  .sidebar-label { font-size: 9px; font-weight: 600; color: var(--teal); letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 8px; }
+  .input-group { margin-bottom: 8px; }
   .input-group label { display: block; font-size: 11px; color: var(--muted); margin-bottom: 4px; }
   .input-group input, .input-group textarea {
-    width: 100%;
-    background: rgba(255,255,255,0.06);
-    border: 0.5px solid rgba(78,168,180,0.3);
-    border-radius: 6px;
-    padding: 8px 10px;
-    font-size: 12px;
-    color: var(--white);
-    font-family: 'Barlow', sans-serif;
-    outline: none;
-    transition: border-color 0.15s;
+    width: 100%; background: rgba(255,255,255,0.06);
+    border: 0.5px solid rgba(78,168,180,0.3); border-radius: 6px;
+    padding: 7px 10px; font-size: 12px; color: var(--white);
+    font-family: 'Barlow', sans-serif; outline: none; transition: border-color 0.15s;
   }
   .input-group input::placeholder, .input-group textarea::placeholder { color: rgba(255,255,255,0.25); }
   .input-group input:focus, .input-group textarea:focus { border-color: var(--teal); }
-  .input-group textarea { height: 72px; resize: vertical; }
-
-  /* Section toggles */
-  .toggle-grid { display: flex; flex-direction: column; gap: 5px; }
+  .input-group textarea { height: 64px; resize: vertical; }
+  .toggle-grid { display: flex; flex-direction: column; gap: 4px; }
   .toggle {
-    display: flex; align-items: center; gap: 8px;
-    padding: 7px 10px;
-    background: rgba(255,255,255,0.04);
-    border: 0.5px solid rgba(255,255,255,0.08);
-    border-radius: 5px;
-    cursor: pointer;
-    transition: all 0.15s;
-    user-select: none;
+    display: flex; align-items: center; gap: 8px; padding: 6px 10px;
+    background: rgba(255,255,255,0.04); border: 0.5px solid rgba(255,255,255,0.08);
+    border-radius: 5px; cursor: pointer; transition: all 0.15s; user-select: none;
   }
   .toggle:hover { background: rgba(78,168,180,0.1); border-color: rgba(78,168,180,0.3); }
   .toggle.on { background: rgba(78,168,180,0.12); border-color: rgba(78,168,180,0.4); }
   .toggle-check {
-    width: 14px; height: 14px; border-radius: 3px;
-    border: 1.5px solid rgba(255,255,255,0.3);
-    flex-shrink: 0;
+    width: 13px; height: 13px; border-radius: 3px;
+    border: 1.5px solid rgba(255,255,255,0.3); flex-shrink: 0;
     display: flex; align-items: center; justify-content: center;
   }
   .toggle.on .toggle-check { background: var(--teal); border-color: var(--teal); }
   .toggle.on .toggle-check::after {
-    content: '';
-    display: block;
-    width: 7px; height: 4px;
-    border-left: 1.5px solid #fff;
-    border-bottom: 1.5px solid #fff;
+    content: ''; display: block; width: 7px; height: 4px;
+    border-left: 1.5px solid #fff; border-bottom: 1.5px solid #fff;
     transform: rotate(-45deg) translate(1px,-1px);
   }
-  .toggle-name { font-size: 12px; color: rgba(255,255,255,0.8); }
+  .toggle-name { font-size: 11px; color: rgba(255,255,255,0.8); }
   .toggle.on .toggle-name { color: var(--white); }
-
-  /* Key field */
-  .key-row { display: flex; gap: 6px; align-items: flex-end; }
-  .key-row .input-group { flex: 1; margin-bottom: 0; }
-  .key-status { font-size: 10px; margin-top: 4px; }
-  .key-status.ok { color: var(--teal); }
-  .key-status.err { color: #E74C3C; }
-
-  /* Generate button */
   .gen-btn {
-    width: 100%;
-    background: var(--teal);
-    color: var(--navy);
-    border: none;
-    border-radius: 6px;
-    padding: 11px;
-    font-family: 'Barlow Condensed', sans-serif;
-    font-weight: 700;
-    font-size: 14px;
-    letter-spacing: 0.06em;
-    cursor: pointer;
-    transition: background 0.15s;
-    margin-top: 4px;
+    width: 100%; background: var(--teal); color: var(--navy);
+    border: none; border-radius: 6px; padding: 11px;
+    font-family: 'Barlow Condensed', sans-serif; font-weight: 700;
+    font-size: 14px; letter-spacing: 0.06em; cursor: pointer; transition: background 0.15s; margin-top: 4px;
   }
   .gen-btn:hover { background: var(--teal-light); }
   .gen-btn:disabled { opacity: 0.45; cursor: not-allowed; }
-
-  /* Progress */
+  .dl-btn {
+    width: 100%; background: transparent; color: var(--teal);
+    border: 0.5px solid rgba(78,168,180,0.4); border-radius: 6px; padding: 9px;
+    font-family: 'Barlow Condensed', sans-serif; font-weight: 700;
+    font-size: 13px; letter-spacing: 0.06em; cursor: pointer; transition: all 0.15s;
+    margin-top: 6px; display: none;
+  }
+  .dl-btn:hover { background: rgba(78,168,180,0.1); }
   .prog-wrap { margin-top: 12px; display: none; }
   .prog-bg { background: rgba(255,255,255,0.08); border-radius: 3px; height: 3px; margin-bottom: 6px; }
   .prog-fill { background: var(--teal); height: 3px; border-radius: 3px; width: 0%; transition: width 0.5s; }
   .prog-text { font-size: 11px; color: var(--muted); }
-
-  /* ── Report area ── */
   .content { padding: 2rem; }
-
   .empty-state {
     display: flex; flex-direction: column; align-items: center; justify-content: center;
     min-height: 60vh; color: var(--muted); text-align: center;
   }
-  .empty-icon {
-    width: 48px; height: 48px; border: 1.5px solid var(--border);
-    border-radius: 50%; display: flex; align-items: center; justify-content: center;
-    margin-bottom: 12px;
-  }
+  .empty-icon { width: 48px; height: 48px; border: 1.5px solid var(--border); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 12px; }
   .empty-icon svg { width: 20px; height: 20px; stroke: var(--muted); fill: none; }
   .empty-title { font-size: 14px; font-weight: 500; margin-bottom: 4px; color: var(--text); }
   .empty-sub { font-size: 12px; color: var(--muted); }
-
   .report { display: none; }
   .report-top {
     display: flex; justify-content: space-between; align-items: flex-start;
-    flex-wrap: wrap; gap: 12px;
-    margin-bottom: 1.5rem;
-    padding-bottom: 1rem;
-    border-bottom: 2px solid var(--teal);
+    flex-wrap: wrap; gap: 12px; margin-bottom: 1.5rem;
+    padding-bottom: 1rem; border-bottom: 2px solid var(--teal);
   }
   .report-company { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 26px; color: var(--navy); letter-spacing: 0.02em; }
   .report-meta { font-size: 11px; color: var(--muted); text-align: right; line-height: 1.6; }
-  .report-actions { display: flex; gap: 8px; margin-bottom: 1.5rem; flex-wrap: wrap; }
-  .action-btn {
-    font-size: 11px; font-weight: 600; padding: 7px 14px;
-    border-radius: 5px; cursor: pointer;
-    border: 0.5px solid var(--border);
-    background: var(--card);
-    color: var(--text);
-    font-family: 'Barlow', sans-serif;
-    letter-spacing: 0.02em;
-    transition: all 0.15s;
-  }
-  .action-btn:hover { background: var(--bg); }
-  .action-btn.primary { background: var(--navy); color: var(--teal); border-color: var(--navy); }
-  .action-btn.primary:hover { background: var(--navy-mid); }
-
-  /* Report sections */
-  .report-section { margin-bottom: 1.25rem; }
-  .section-card {
-    background: var(--card);
-    border: 0.5px solid var(--border);
-    border-radius: 8px;
-    overflow: hidden;
-  }
+  .report-section { margin-bottom: 1rem; }
+  .section-card { background: var(--card); border: 0.5px solid var(--border); border-radius: 8px; overflow: hidden; }
   .section-head {
     display: flex; align-items: center; justify-content: space-between;
-    padding: 10px 14px;
-    border-bottom: 0.5px solid var(--border);
-    background: #FAFBFC;
+    padding: 9px 14px; border-bottom: 0.5px solid var(--border); background: #FAFBFC;
   }
-  .section-label-text {
-    font-size: 9px; font-weight: 700; color: var(--teal);
-    letter-spacing: 0.12em; text-transform: uppercase;
-  }
+  .section-label-text { font-size: 9px; font-weight: 700; color: var(--teal); letter-spacing: 0.12em; text-transform: uppercase; }
   .section-status { font-size: 10px; color: var(--muted); }
   .section-status.done { color: var(--teal); }
   .section-status.err { color: var(--danger); }
-  .section-body {
-    padding: 14px;
-    font-size: 13px; line-height: 1.75;
-    color: var(--text);
-    white-space: pre-wrap;
-    min-height: 48px;
-  }
+  .section-body { padding: 14px; font-size: 13px; line-height: 1.75; color: var(--text); white-space: pre-wrap; min-height: 48px; }
   .section-body.loading { color: var(--muted); font-style: italic; }
   .section-body.error { color: var(--danger); }
-
+  .sources-section { margin-top: 1.5rem; padding-top: 1rem; border-top: 0.5px solid var(--border); }
+  .sources-title { font-size: 9px; font-weight: 700; color: var(--muted); letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 8px; }
+  .source-item { font-size: 11px; color: var(--muted); margin-bottom: 4px; line-height: 1.5; }
+  .source-item a { color: var(--teal); text-decoration: none; }
+  .source-item a:hover { text-decoration: underline; }
   .divider { height: 0.5px; background: var(--border); margin: 1.5rem 0; }
-  .confidential {
-    font-size: 10px; color: var(--muted); text-align: center;
-    letter-spacing: 0.06em; text-transform: uppercase;
-    padding-top: 1rem;
-  }
-
-  /* Print styles */
-  @media print {
-    .header, .sidebar { display: none; }
-    .main { display: block; }
-    .content { padding: 0; }
-    .report { display: block !important; }
-    .empty-state { display: none; }
-    .report-actions { display: none; }
-    .section-card { break-inside: avoid; }
-  }
+  .confidential { font-size: 10px; color: var(--muted); text-align: center; letter-spacing: 0.06em; text-transform: uppercase; padding-top: 1rem; }
 </style>
 </head>
 <body>
 
 <header class="header">
   <div class="logo">
-    <svg viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <polygon points="5,28 14,4 23,28 18,28 14,16 10,28" fill="#4EA8B4"/>
-      <rect x="5" y="22" width="13" height="5" rx="1" fill="#4EA8B4"/>
-    </svg>
+    <svg viewBox="0 0 28 28" fill="none"><polygon points="5,28 14,4 23,28 18,28 14,16 10,28" fill="#4EA8B4"/><rect x="5" y="22" width="13" height="5" rx="1" fill="#4EA8B4"/></svg>
     <span class="logo-text">LEZAH CAPITAL</span>
   </div>
   <span class="header-tag">Research Report Generator</span>
 </header>
 
 <div class="main">
-
-  <!-- Sidebar -->
   <aside class="sidebar">
-
     <div class="sidebar-section">
       <div class="sidebar-label">Company details</div>
-      <div class="input-group">
-        <label>Company name *</label>
-        <input type="text" id="company" placeholder="e.g. Schylling Inc." />
-      </div>
-      <div class="input-group">
-        <label>Category / sector</label>
-        <input type="text" id="sector" placeholder="e.g. Novelty toys" />
-      </div>
-      <div class="input-group">
-        <label>Context (optional)</label>
-        <textarea id="context" placeholder="e.g. Distributes NeeDoh fidget toys, ~$100mm revenue, sells through Target and Amazon..."></textarea>
-      </div>
+      <div class="input-group"><label>Company name *</label><input type="text" id="company" placeholder="e.g. Schylling Inc." /></div>
+      <div class="input-group"><label>Category / sector</label><input type="text" id="sector" placeholder="e.g. Novelty toys" /></div>
+      <div class="input-group"><label>Context (optional)</label><textarea id="context" placeholder="e.g. Distributes NeeDoh fidget toys, ~$100mm revenue..."></textarea></div>
     </div>
-
     <div class="sidebar-section">
       <div class="sidebar-label">Sections</div>
       <div class="toggle-grid" id="toggle-grid">
@@ -283,74 +151,59 @@
         <div class="toggle on" data-id="competitive" onclick="toggleSection(this)"><div class="toggle-check"></div><span class="toggle-name">Competitive landscape</span></div>
         <div class="toggle on" data-id="channel" onclick="toggleSection(this)"><div class="toggle-check"></div><span class="toggle-name">Channel & distribution</span></div>
         <div class="toggle on" data-id="consumer" onclick="toggleSection(this)"><div class="toggle-check"></div><span class="toggle-name">Consumer trends</span></div>
+        <div class="toggle on" data-id="supplychain" onclick="toggleSection(this)"><div class="toggle-check"></div><span class="toggle-name">Supply chain & inputs</span></div>
         <div class="toggle on" data-id="founder" onclick="toggleSection(this)"><div class="toggle-check"></div><span class="toggle-name">Founder diligence</span></div>
         <div class="toggle on" data-id="management" onclick="toggleSection(this)"><div class="toggle-check"></div><span class="toggle-name">Management team</span></div>
         <div class="toggle on" data-id="lezahfit" onclick="toggleSection(this)"><div class="toggle-check"></div><span class="toggle-name">Fit with Lezah</span></div>
       </div>
     </div>
-
     <button class="gen-btn" id="gen-btn" onclick="generate()">GENERATE REPORT</button>
-
+    <button class="dl-btn" id="dl-btn" onclick="downloadPDF()">DOWNLOAD PDF</button>
     <div class="prog-wrap" id="prog-wrap">
       <div class="prog-bg"><div class="prog-fill" id="prog-fill"></div></div>
       <div class="prog-text" id="prog-text">Starting...</div>
     </div>
-
   </aside>
 
-  <!-- Content -->
   <main class="content">
-
     <div class="empty-state" id="empty">
-      <div class="empty-icon">
-        <svg viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/></svg>
-      </div>
+      <div class="empty-icon"><svg viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/></svg></div>
       <div class="empty-title">No report generated yet</div>
       <div class="empty-sub">Enter a company name and click Generate Report</div>
     </div>
-
     <div class="report" id="report">
       <div class="report-top">
         <div>
           <div class="report-company" id="r-company"></div>
-          <div style="font-size:12px; color:var(--muted); margin-top:3px;" id="r-sub"></div>
+          <div style="font-size:12px;color:var(--muted);margin-top:3px;" id="r-sub"></div>
         </div>
         <div class="report-meta" id="r-meta"></div>
       </div>
-
-      <div class="report-actions">
-        <button class="action-btn primary" onclick="copyReport()">Copy full report</button>
-        <button class="action-btn" onclick="window.print()">Print / save as PDF</button>
-      </div>
-
       <div id="report-sections"></div>
-
+      <div class="sources-section" id="sources-section" style="display:none;">
+        <div class="sources-title">Sources</div>
+        <div id="sources-list"></div>
+      </div>
       <div class="divider"></div>
       <div class="confidential">Lezah Capital &nbsp;·&nbsp; Confidential &nbsp;·&nbsp; For Internal Use Only</div>
     </div>
-
   </main>
 </div>
 
 <script>
-// Simple password protection
+// Password protection
 (function() {
-  const PASSWORD = "lezahcap2026";
+  const PASSWORD = "lezah2024";
   const STORAGE_KEY = "lezah_auth";
   if (sessionStorage.getItem(STORAGE_KEY) === "true") return;
-  
   function check() {
     const entered = prompt("Lezah Capital Research -- Enter password:");
     if (entered === null) {
       document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;color:#8A9BAA;flex-direction:column;gap:12px;"><div>Access restricted.</div><button onclick="location.reload()" style="padding:8px 16px;cursor:pointer;">Try again</button></div>';
       return;
     }
-    if (entered === PASSWORD) {
-      sessionStorage.setItem(STORAGE_KEY, "true");
-    } else {
-      alert("Incorrect password. Please try again.");
-      check();
-    }
+    if (entered === PASSWORD) { sessionStorage.setItem(STORAGE_KEY, "true"); }
+    else { alert("Incorrect password. Please try again."); check(); }
   }
   check();
 })();
@@ -372,7 +225,13 @@ Cover: current TAM and methodology, 3-5 year CAGR and growth drivers, how the ma
     label: "Competitive landscape",
     prompt: (c,s,ctx) => `You are a consumer/CPG investment analyst for Lezah Capital. Map the competitive landscape for ${c}.${s?" Sector: "+s+".":""}${ctx?" Context: "+ctx+".":""}
 
-Cover: how to frame the competitive set, top 4-6 competitors with positioning/scale/channel/differentiator for each, where the white space is, and what a growth-stage player needs to win. 350 words max.`
+Cover:
+1. How to frame the competitive set (who are real comps vs adjacent)
+2. Top 4-6 competitors -- for each provide: brand positioning, estimated scale, channel strategy, key differentiator, and importantly WHO OWNS THEM (e.g. founder-led, private equity-backed with fund name, publicly traded, strategic/corporate owner). This ownership context is critical for understanding competitive dynamics.
+3. Where the white space is
+4. What a growth-stage player needs to win
+
+350 words max.`
   },
   channel: {
     label: "Channel & distribution",
@@ -386,6 +245,24 @@ Cover: how the category reaches consumers today, which channels are growing vs d
 
 Cover: 3-4 most important behavioral shifts, what is durable vs a fad, how trends translate to purchase behavior, signals of maturation, and what a brand needs to ride these tailwinds. 300 words max.`
   },
+  supplychain: {
+    label: "Supply chain & raw material inputs",
+    prompt: (c,s,ctx) => `You are a consumer/CPG investment analyst for Lezah Capital. Analyze the supply chain and raw material inputs for ${c}.${s?" Sector: "+s+".":""}${ctx?" Context: "+ctx+".":""}
+
+Focus on this as a risk assessment:
+
+1. Key raw material inputs -- what goes into making this product? (e.g. plastics, cotton, electronics, food ingredients, packaging). Be specific to this product category.
+
+2. Input cost dynamics -- are these commodities volatile? What drives price changes? Have there been significant cost pressures in recent years?
+
+3. Sourcing geography -- where are raw materials and finished goods typically sourced from? What is the concentration risk (e.g. heavy China dependence)?
+
+4. Tariff and trade risk -- given current US trade policy and tariff environment, what is the exposure for a company in this category? Is this a material risk?
+
+5. Supply chain risk flags -- any concentration, single-source dependencies, or geopolitical exposures worth flagging in diligence?
+
+Be direct about what is speculative vs well-documented. 350 words max.`
+  },
   founder: {
     label: "Founder & management diligence",
     prompt: (c,s,ctx) => `You are an investment analyst doing founder diligence for Lezah Capital. Research the founding team of ${c}.${s?" Sector: "+s+".":""}${ctx?" Context: "+ctx+".":""}
@@ -394,74 +271,79 @@ Cover: educational and professional background, prior company experience, notabl
   },
   management: {
     label: "Management team overview",
-    prompt: (c,s,ctx) => `You are an investment analyst doing management diligence for Lezah Capital, a private family office that takes an active operational role in its investments. Assess the management team of ${c}.${s?" Sector: "+s+".":""}${ctx?" Context: "+ctx+".":""}
+    prompt: (c,s,ctx) => `You are an investment analyst doing management diligence for Lezah Capital. Assess the management team of ${c}.${s?" Sector: "+s+".":""}${ctx?" Context: "+ctx+".":""}
 
-Structure your response as follows:
+1. Org chart overview -- key leaders, roles, and team structure
+2. Team professionalism -- right backgrounds for a scaling consumer business?
+3. Family dynamics -- family members in senior roles? Merit-based or structural? Governance concerns?
+4. Key gaps -- missing CFO, head of sales, supply chain, marketing, ecommerce?
+5. Value creation implications -- 2-3 most important hires if Lezah invested?
 
-1. Org chart overview -- who are the key leaders, what are their roles, and how does the team appear to be structured (flat, hierarchical, founder-led, etc.)
-
-2. Team professionalism -- do they have the right backgrounds for a scaling consumer business? Are they operators, founders, or generalists? How seasoned does the team appear relative to the company's scale?
-
-3. Family dynamics -- are there family members in senior roles? If so, are their positions merit-based or structural? Flag any concentration of control or potential governance concerns.
-
-4. Key gaps -- what critical functions appear to be missing or underpowered based on the company's stage and strategy? Common gaps to look for: CFO/finance leadership, head of sales, supply chain/ops leadership, marketing/brand, ecommerce/digital.
-
-5. Value creation implications -- if Lezah were to invest, what are the 2-3 most important hires or management changes that would drive value?
-
-Be direct and investment-focused. Flag where information is limited or unclear. 400 words max.`
+Be direct. Flag where information is limited. 400 words max.`
   },
   lezahfit: {
     label: "Fit with Lezah Capital",
-    prompt: (c,s,ctx) => `You are an investment analyst advising Lezah Capital, a private family office founded by Judd and Laura Zebersky. Before founding Lezah, Judd and Laura built Jazwares into one of the world's leading toy and consumer products companies. Their experience includes:
+    prompt: (c,s,ctx) => `You are an investment analyst advising Lezah Capital, founded by Judd and Laura Zebersky (formerly Jazwares). Their experience includes: scaling a consumer products business to hundreds of millions in revenue, managing major entertainment licenses (Pokemon, Peppa Pig, Roblox), deep relationships with mass retail buyers (Walmart, Target, Amazon), building global supply chains in Asia, and professionalizing founder-led businesses for scale.
 
-- Scaling a consumer products business from startup to hundreds of millions in revenue
-- Managing major entertainment licenses (including Pokemon, Peppa Pig, Roblox, and others) and understanding how to maximize licensed IP value
-- Deep relationships with mass retail buyers at Walmart, Target, Amazon, and major global retailers
-- Building and managing complex global supply chains, primarily in Asia
-- Growing a portfolio of owned and licensed brands across toys, collectibles, plush, and consumer products
-- Understanding of product development cycles, seasonal demand, and retail sell-through dynamics
-- Experience taking a founder-led business and professionalizing it for scale
+Assess fit for ${c}.${s?" Sector: "+s+".":""}${ctx?" Context: "+ctx+".":""}
 
-Assess how well ${c} fits with Lezah Capital's investment thesis and where Judd and Laura's experience would be most relevant.${s?" Sector: "+s+".":""}${ctx?" Context: "+ctx+".":""}
+1. Strategic fit -- right stage, size, category? Yes/partial/no and why.
+2. Where Lezah adds value -- specific applicable experience only. No fluff.
+3. Where experience is less relevant -- be honest about gaps.
+4. Value creation thesis -- 2-3 specific ways Lezah involvement accelerates growth beyond capital.
+5. Overall verdict -- Strong fit, Potential fit, or Weak fit. What would need to be true to invest?
 
-Structure your response as:
-
-1. Strategic fit -- does this business align with Lezah's focus on consumer/CPG? Is it the right stage, size, and category? Yes, partial, or no -- and why.
-
-2. Where Lezah adds value -- be specific about which of Judd and Laura's experiences are directly applicable. For example: retail relationships, licensed IP expertise, supply chain, brand building, or operational scaling. Only include areas where there is genuine relevance.
-
-3. Where Lezah's experience is less relevant -- be honest about areas where Jazwares' playbook does not apply to this business. A bedding brand is different from a toy company. Flag these gaps clearly.
-
-4. Value creation thesis -- if Lezah were to invest, what are the 2-3 specific ways their involvement could accelerate growth or improve the business beyond just capital?
-
-5. Overall verdict -- Strong fit, Potential fit, or Weak fit. 2-3 sentences on what would need to be true for this to be a Lezah investment.
-
-Be direct and honest. This is for internal use and we want accurate assessments, not optimistic ones. 400 words max.`
+Be direct and honest. This is internal. 400 words max.`
   }
 };
 
-const ORDER = ["snapshot","market","competitive","channel","consumer","founder","management","lezahfit"];
+const ORDER = ["snapshot","market","competitive","channel","consumer","supplychain","founder","management","lezahfit"];
 let results = {};
+let allSources = [];
 
 function toggleSection(el) { el.classList.toggle("on"); }
-
-function getSelected() {
-  return ORDER.filter(id => document.querySelector(`[data-id="${id}"]`).classList.contains("on"));
-}
+function getSelected() { return ORDER.filter(id => document.querySelector(`[data-id="${id}"]`).classList.contains("on")); }
 
 async function callClaude(prompt) {
   const res = await fetch("/.netlify/functions/claude", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: "claude-sonnet-4-5",
-      max_tokens: 1000,
-      messages: [{ role: "user", content: prompt }]
-    })
+    body: JSON.stringify({ model: "claude-sonnet-4-5", max_tokens: 1000, messages: [{ role: "user", content: prompt }] })
   });
   const data = await res.json();
   if (data.error) throw new Error(data.error.message);
   return data.content[0].text;
+}
+
+async function searchSerper(query) {
+  try {
+    const res = await fetch("/.netlify/functions/search", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query })
+    });
+    const data = await res.json();
+    return data;
+  } catch(e) {
+    return null;
+  }
+}
+
+function extractContext(data) {
+  if (!data) return "";
+  const lines = [];
+  if (data.knowledgeGraph) {
+    const kg = data.knowledgeGraph;
+    if (kg.description) lines.push(kg.description);
+    if (kg.attributes) Object.entries(kg.attributes).forEach(([k,v]) => lines.push(`${k}: ${v}`));
+  }
+  if (data.organic) {
+    data.organic.slice(0,4).forEach(r => {
+      if (r.snippet) lines.push(r.snippet);
+      if (r.link && r.title) allSources.push({ title: r.title, url: r.link });
+    });
+  }
+  return lines.join("\n");
 }
 
 async function generate() {
@@ -474,12 +356,16 @@ async function generate() {
   if (!selected.length) { alert("Please select at least one section."); return; }
 
   results = {};
+  allSources = [];
   const btn = document.getElementById("gen-btn");
+  const dlBtn = document.getElementById("dl-btn");
   btn.disabled = true; btn.textContent = "GENERATING...";
+  dlBtn.style.display = "none";
 
   document.getElementById("empty").style.display = "none";
   document.getElementById("report").style.display = "block";
   document.getElementById("prog-wrap").style.display = "block";
+  document.getElementById("sources-section").style.display = "none";
 
   document.getElementById("r-company").textContent = company;
   document.getElementById("r-sub").textContent = [sector, context ? context.slice(0,80)+"..." : ""].filter(Boolean).join(" · ");
@@ -491,65 +377,92 @@ async function generate() {
   for (const id of selected) {
     const div = document.createElement("div");
     div.className = "report-section";
-    div.innerHTML = `
-      <div class="section-card">
-        <div class="section-head">
-          <span class="section-label-text">${SECTIONS[id].label}</span>
-          <span class="section-status" id="st-${id}">Queued</span>
-        </div>
-        <div class="section-body loading" id="bd-${id}">Waiting...</div>
-      </div>`;
+    div.innerHTML = `<div class="section-card"><div class="section-head"><span class="section-label-text">${SECTIONS[id].label}</span><span class="section-status" id="st-${id}">Queued</span></div><div class="section-body loading" id="bd-${id}">Waiting...</div></div>`;
     secContainer.appendChild(div);
   }
 
+  // Run web search first
+  document.getElementById("prog-text").textContent = "Searching web for company information...";
+  const [r1, r2] = await Promise.all([
+    searchSerper(`${company} company overview revenue funding`),
+    searchSerper(`${company} ${sector || "consumer"} founders management competitors`)
+  ]);
+  const webContext = [extractContext(r1), extractContext(r2)].filter(Boolean).join("\n\n");
+  const fullContext = [context, webContext ? `Web research:\n${webContext}` : ""].filter(Boolean).join("\n\n");
+
+  // Generate each section
   for (let i = 0; i < selected.length; i++) {
     const id = selected[i];
-    const pct = Math.round((i / selected.length) * 100);
+    const pct = Math.round(((i+1) / selected.length) * 100);
     document.getElementById("prog-fill").style.width = pct + "%";
     document.getElementById("prog-text").textContent = `${i+1} of ${selected.length} -- ${SECTIONS[id].label}...`;
     document.getElementById("st-" + id).textContent = "Generating...";
     document.getElementById("bd-" + id).textContent = "Researching...";
 
     try {
-      const text = await callClaude(SECTIONS[id].prompt(company, sector, context));
+      const text = await callClaude(SECTIONS[id].prompt(company, sector, fullContext));
       results[id] = text;
       const bd = document.getElementById("bd-" + id);
       bd.textContent = text;
       bd.classList.remove("loading");
       const st = document.getElementById("st-" + id);
-      st.textContent = "Done";
-      st.className = "section-status done";
+      st.textContent = "Done"; st.className = "section-status done";
     } catch(e) {
       const bd = document.getElementById("bd-" + id);
       bd.textContent = "Error: " + e.message;
-      bd.classList.remove("loading");
-      bd.classList.add("error");
+      bd.classList.remove("loading"); bd.classList.add("error");
       const st = document.getElementById("st-" + id);
-      st.textContent = "Error";
-      st.className = "section-status err";
+      st.textContent = "Error"; st.className = "section-status err";
     }
+  }
+
+  // Show sources
+  const uniqueSources = allSources.filter((s,i,a) => a.findIndex(x => x.url===s.url)===i).slice(0,12);
+  if (uniqueSources.length) {
+    const sourcesList = document.getElementById("sources-list");
+    sourcesList.innerHTML = uniqueSources.map((s,i) =>
+      `<div class="source-item">[${i+1}] <a href="${s.url}" target="_blank">${s.title}</a></div>`
+    ).join("");
+    document.getElementById("sources-section").style.display = "block";
   }
 
   document.getElementById("prog-fill").style.width = "100%";
   document.getElementById("prog-text").textContent = "Report complete.";
-  btn.disabled = false;
-  btn.textContent = "REGENERATE";
+  btn.disabled = false; btn.textContent = "REGENERATE";
+  dlBtn.style.display = "block";
 }
 
-function copyReport() {
+async function downloadPDF() {
   const company = document.getElementById("company").value.trim();
-  const date = new Date().toLocaleDateString("en-US",{month:"long",day:"numeric",year:"numeric"});
-  let text = `LEZAH CAPITAL -- INVESTMENT RESEARCH REPORT\n${company}\n${date}\nConfidential -- For Internal Use Only\n\n`;
-  for (const id of ORDER) {
-    if (results[id]) {
-      text += `${"=".repeat(60)}\n${SECTIONS[id].label.toUpperCase()}\n${"=".repeat(60)}\n\n${results[id]}\n\n`;
-    }
+  const sector  = document.getElementById("sector").value.trim();
+  const date    = new Date().toLocaleDateString("en-US",{month:"long",day:"numeric",year:"numeric"});
+  const dlBtn   = document.getElementById("dl-btn");
+
+  dlBtn.disabled = true; dlBtn.textContent = "GENERATING PDF...";
+
+  const uniqueSources = allSources.filter((s,i,a) => a.findIndex(x => x.url===s.url)===i).slice(0,12);
+
+  try {
+    const res = await fetch("/.netlify/functions/pdf", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ company, sector, date, results, sources: uniqueSources })
+    });
+
+    if (!res.ok) throw new Error("PDF generation failed");
+
+    const blob = await res.blob();
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement("a");
+    a.href = url;
+    a.download = `${company.replace(/[^a-zA-Z0-9]/g,"_")}_Lezah_Research.pdf`;
+    a.click();
+    URL.revokeObjectURL(url);
+  } catch(e) {
+    alert("PDF error: " + e.message);
   }
-  navigator.clipboard.writeText(text).then(() => {
-    const btn = document.querySelector(".action-btn.primary");
-    btn.textContent = "Copied!";
-    setTimeout(() => btn.textContent = "Copy full report", 2000);
-  });
+
+  dlBtn.disabled = false; dlBtn.textContent = "DOWNLOAD PDF";
 }
 </script>
 </body>
