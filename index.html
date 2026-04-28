@@ -260,15 +260,6 @@
   <aside class="sidebar">
 
     <div class="sidebar-section">
-      <div class="sidebar-label">API Key</div>
-      <div class="input-group">
-        <label>Anthropic API key</label>
-        <input type="password" id="api-key" placeholder="sk-ant-..." oninput="saveKey()" />
-      </div>
-      <div class="key-status" id="key-status"></div>
-    </div>
-
-    <div class="sidebar-section">
       <div class="sidebar-label">Company details</div>
       <div class="input-group">
         <label>Company name *</label>
@@ -430,46 +421,16 @@ Be direct and honest. This is for internal use and we want accurate assessments,
 const ORDER = ["snapshot","market","competitive","channel","consumer","founder","management","lezahfit"];
 let results = {};
 
-// Persist API key in localStorage
-window.addEventListener("load", () => {
-  const saved = localStorage.getItem("lezah_api_key");
-  if (saved) {
-    document.getElementById("api-key").value = saved;
-    updateKeyStatus(saved);
-  }
-});
-
-function saveKey() {
-  const key = document.getElementById("api-key").value.trim();
-  if (key) localStorage.setItem("lezah_api_key", key);
-  updateKeyStatus(key);
-}
-
-function updateKeyStatus(key) {
-  const el = document.getElementById("key-status");
-  if (!key) { el.textContent = ""; return; }
-  if (key.startsWith("sk-ant-")) {
-    el.textContent = "Key saved"; el.className = "key-status ok";
-  } else {
-    el.textContent = "Should start with sk-ant-"; el.className = "key-status err";
-  }
-}
-
 function toggleSection(el) { el.classList.toggle("on"); }
 
 function getSelected() {
   return ORDER.filter(id => document.querySelector(`[data-id="${id}"]`).classList.contains("on"));
 }
 
-async function callClaude(prompt, apiKey) {
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
+async function callClaude(prompt) {
+  const res = await fetch("/.netlify/functions/claude", {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": apiKey,
-      "anthropic-version": "2023-06-01",
-      "anthropic-dangerous-allow-cors": "true"
-    },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       model: "claude-sonnet-4-5",
       max_tokens: 1000,
@@ -485,11 +446,9 @@ async function generate() {
   const company = document.getElementById("company").value.trim();
   const sector  = document.getElementById("sector").value.trim();
   const context = document.getElementById("context").value.trim();
-  const apiKey  = document.getElementById("api-key").value.trim();
   const selected = getSelected();
 
   if (!company) { alert("Please enter a company name."); return; }
-  if (!apiKey)  { alert("Please enter your Anthropic API key."); return; }
   if (!selected.length) { alert("Please select at least one section."); return; }
 
   results = {};
@@ -530,7 +489,7 @@ async function generate() {
     document.getElementById("bd-" + id).textContent = "Researching...";
 
     try {
-      const text = await callClaude(SECTIONS[id].prompt(company, sector, context), apiKey);
+      const text = await callClaude(SECTIONS[id].prompt(company, sector, context));
       results[id] = text;
       const bd = document.getElementById("bd-" + id);
       bd.textContent = text;
