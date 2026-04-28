@@ -1,14 +1,8 @@
-const PDFDocument = require("pdfkit");
-
-// Brand colors as RGB
-const NAVY   = [13, 27, 42];
-const TEAL   = [78, 168, 180];
-const GOLD   = [196, 156, 82];
-const WHITE  = [255, 255, 255];
-const BODY   = [28, 43, 58];
-const MUTED  = [138, 155, 170];
-const BORDER = [221, 227, 232];
-const RISK_BG= [244, 246, 248];
+/**
+ * Lezah Capital -- PDF generator Netlify function
+ * Uses no external dependencies -- generates a clean text-based PDF
+ * using raw PDF syntax so pdfkit is not required.
+ */
 
 exports.handler = async function(event) {
   if (event.httpMethod !== "POST") {
@@ -32,138 +26,267 @@ exports.handler = async function(event) {
 
     const ORDER = ["snapshot","market","competitive","channel","consumer","supplychain","founder","management","lezahfit"];
 
-    // Build PDF in memory
-    const doc = new PDFDocument({
-      margin: 50,
-      size: "letter",
-      info: { Title: `${company} -- Lezah Capital Research Report`, Author: "Lezah Capital" }
-    });
+    // Build PDF using raw PDF syntax (no external deps needed)
+    const W = 612, H = 792;
+    const MARGIN = 50;
+    const USABLE_W = W - MARGIN * 2;
 
-    const chunks = [];
-    doc.on("data", chunk => chunks.push(chunk));
+    // Colors
+    const NAVY_RGB  = "0.051 0.106 0.165";
+    const TEAL_RGB  = "0.306 0.659 0.706";
+    const GOLD_RGB  = "0.769 0.612 0.322";
+    const WHITE_RGB = "1 1 1";
+    const BODY_RGB  = "0.110 0.169 0.227";
+    const MUTED_RGB = "0.541 0.608 0.667";
+    const BORDER_RGB= "0.867 0.890 0.910";
+    const BG_RGB    = "0.973 0.976 0.973";
 
-    // ── Header ────────────────────────────────────────────────────────────────
-    doc.rect(0, 0, doc.page.width, 80).fill(NAVY);
+    const pages = [];
+    let currentPage = [];
+    let y = H - MARGIN; // PDF coordinates go bottom-up
 
-    // Logo mark (simplified L shape)
-    doc.save();
-    doc.fill(TEAL);
-    doc.polygon([20,70],[29,46],[38,70],[33,70],[29,58],[25,70]).fill();
-    doc.rect(20, 65, 14, 5).fill();
-    doc.restore();
-
-    // Wordmark
-    doc.fill(TEAL).font("Helvetica-Bold").fontSize(14)
-       .text("LEZAH CAPITAL", 48, 28, { lineBreak: false });
-    doc.fill(MUTED).font("Helvetica").fontSize(7)
-       .text("A BUILDERS' FAMILY OFFICE", 48, 46, { lineBreak: false });
-
-    // Company name right-aligned
-    doc.fill(WHITE).font("Helvetica-Bold").fontSize(20)
-       .text(company.toUpperCase(), 50, 22, { align: "right", lineBreak: false });
-
-    // Sector badge
-    if (sector) {
-      const badgeText = sector.toUpperCase();
-      const bw = doc.widthOfString(badgeText, { fontSize: 7 }) + 14;
-      const bx = doc.page.width - 50 - bw;
-      doc.roundedRect(bx, 48, bw, 14, 3).fill([26, 48, 64]);
-      doc.fill(TEAL).font("Helvetica-Bold").fontSize(7)
-         .text(badgeText, bx + 7, 52, { lineBreak: false });
+    function newPage() {
+      if (currentPage.length) pages.push(currentPage);
+      currentPage = [];
+      y = H - MARGIN;
     }
 
-    // ── Tagline ───────────────────────────────────────────────────────────────
-    doc.moveDown(0.5);
-    doc.y = 92;
-    doc.fill(GOLD).font("Helvetica").fontSize(7.5)
-       .text(`INVESTMENT RESEARCH REPORT  ·  CONSUMER / CPG  ·  ${date}`, 50, 92, { letterSpacing: 1 });
+    function addRaw(...lines) {
+      currentPage.push(...lines);
+    }
 
-    doc.y = 108;
+    function setColor(rgb, stroke = false) {
+      addRaw(stroke ? `${rgb} RG` : `${rgb} rg`);
+    }
+
+    function rect(x, ry, w, h, fill = true, stroke = false) {
+      const pdfY = ry - h;
+      addRaw(`${x} ${pdfY} ${w} ${h} re`);
+      if (fill && stroke) addRaw("B");
+      else if (fill) addRaw("f");
+      else if (stroke) addRaw("S");
+    }
+
+    function line(x1, y1, x2, y2) {
+      addRaw(`${x1} ${y1} m ${x2} ${y2} l S`);
+    }
+
+    function text(str, x, ty, size, bold = false) {
+      const safe = (str || "").replace(/\\/g,"\\\\").replace(/\(/g,"\\(").replace(/\)/g,"\\)");
+      const font = bold ? "/F2" : "/F1";
+      addRaw(`BT ${font} ${size} Tf ${x} ${ty} Td (${safe}) Tj ET`);
+    }
+
+    // Word-wrap helper
+    function wrapText(str, maxChars) {
+      const words = (str || "").split(" ");
+      const lines = [];
+      let cur = "";
+      for (const w of words) {
+        if ((cur + " " + w).trim().length <= maxChars) {
+          cur = (cur + " " + w).trim();
+        } else {
+          if (cur) lines.push(cur);
+          cur = w;
+        }
+      }
+      if (cur) lines.push(cur);
+      return lines;
+    }
+
+    const CHARS_PER_LINE = 95;
+    const LINE_H = 13;
+    const SECTION_HEADER_H = 22;
+    const SECTION_PAD = 10;
+
+    // ── Page 1: Header ────────────────────────────────────────────────────────
+    newPage();
+
+    // Navy header bar
+    setColor(NAVY_RGB);
+    rect(0, H, W, 75);
+
+    // Teal accent line under header
+    setColor(TEAL_RGB);
+    rect(0, H - 75, W, 2);
+
+    // Company name
+    setColor(WHITE_RGB);
+    text(company.toUpperCase(), MARGIN, H - 25, 20, true);
+
+    // Lezah Capital wordmark
+    setColor(TEAL_RGB);
+    text("LEZAH CAPITAL", MARGIN, H - 52, 13, true);
+
+    // Sector badge area
+    if (sector) {
+      setColor(TEAL_RGB);
+      text(sector.toUpperCase(), MARGIN, H - 65, 8);
+    }
+
+    // Tagline
+    setColor(GOLD_RGB);
+    text(`INVESTMENT RESEARCH REPORT  .  CONSUMER / CPG  .  ${date}`, MARGIN, H - 90, 8);
+
+    // Teal rule under tagline
+    setColor(TEAL_RGB);
+    line(MARGIN, H - 95, W - MARGIN, H - 95);
+
+    y = H - 112;
 
     // ── Sections ──────────────────────────────────────────────────────────────
-    const pageW = doc.page.width - 100; // usable width
-
     for (const id of ORDER) {
       if (!results[id]) continue;
       const label = SECTION_LABELS[id] || id;
-      const text  = results[id];
+      const bodyLines = wrapText(results[id], CHARS_PER_LINE);
+      const sectionH = SECTION_HEADER_H + bodyLines.length * LINE_H + SECTION_PAD * 2;
 
-      // Check if we need a new page (leave 120pt buffer)
-      if (doc.y > doc.page.height - 150) doc.addPage();
+      // New page if not enough space (leave 80pt buffer for footer)
+      if (y - sectionH < 60) {
+        newPage();
+        y = H - MARGIN;
+      }
 
-      const startY = doc.y;
+      const sectionTop = y;
+      const sectionBot = y - sectionH;
 
-      // Section header bar
-      doc.rect(50, startY, pageW, 22).fill([250, 251, 252]);
-      doc.rect(50, startY, pageW, 22).stroke(BORDER);
-      // Teal left accent
-      doc.rect(50, startY, 3, 22).fill(TEAL);
+      // Section background
+      setColor(BG_RGB);
+      rect(MARGIN, sectionTop, USABLE_W, sectionH);
 
-      doc.fill(TEAL).font("Helvetica-Bold").fontSize(7.5)
-         .text(label.toUpperCase(), 62, startY + 7, { lineBreak: false, letterSpacing: 0.8 });
+      // Border
+      setColor(BORDER_RGB, true);
+      setColor(BG_RGB);
+      addRaw(`0.5 w`);
+      rect(MARGIN, sectionTop, USABLE_W, sectionH, false, true);
 
-      doc.y = startY + 22;
+      // Teal left accent bar
+      setColor(TEAL_RGB);
+      rect(MARGIN, sectionTop, 3, sectionH);
 
-      // Section body
-      const bodyStartY = doc.y;
-      doc.fill(BODY).font("Helvetica").fontSize(8.5).lineGap(2)
-         .text(text, 62, bodyStartY, { width: pageW - 24, lineBreak: true });
+      // Section label
+      setColor(TEAL_RGB);
+      text(label.toUpperCase(), MARGIN + 12, sectionTop - 15, 8, true);
 
-      const bodyEndY = doc.y + 10;
+      // Divider under label
+      setColor(BORDER_RGB, true);
+      addRaw("0.5 w");
+      line(MARGIN + 12, sectionTop - SECTION_HEADER_H, W - MARGIN, sectionTop - SECTION_HEADER_H);
 
-      // Draw card border around whole section
-      doc.rect(50, startY, pageW, bodyEndY - startY)
-         .stroke(BORDER);
+      // Body text
+      setColor(BODY_RGB);
+      let ty = sectionTop - SECTION_HEADER_H - LINE_H;
+      for (const ln of bodyLines) {
+        text(ln, MARGIN + 12, ty, 8.5);
+        ty -= LINE_H;
+      }
 
-      doc.y = bodyEndY + 10;
+      y = sectionBot - 10;
     }
 
     // ── Sources ───────────────────────────────────────────────────────────────
     if (sources && sources.length) {
-      if (doc.y > doc.page.height - 120) doc.addPage();
-      doc.moveTo(50, doc.y).lineTo(doc.page.width - 50, doc.y).stroke(BORDER);
-      doc.y += 10;
-      doc.fill(MUTED).font("Helvetica-Bold").fontSize(7.5).text("SOURCES", 50, doc.y, { letterSpacing: 0.8 });
-      doc.y += 8;
-      sources.forEach((s, i) => {
-        if (doc.y > doc.page.height - 60) doc.addPage();
-        doc.fill(MUTED).font("Helvetica").fontSize(8)
-           .text(`[${i+1}] ${s.title} — ${s.url}`, 50, doc.y, { width: pageW, lineBreak: true });
-        doc.y += 2;
-      });
+      if (y < 120) newPage();
+
+      setColor(BORDER_RGB, true);
+      line(MARGIN, y, W - MARGIN, y);
+      y -= 15;
+
+      setColor(MUTED_RGB);
+      text("SOURCES", MARGIN, y, 8, true);
+      y -= 14;
+
+      for (let i = 0; i < sources.length; i++) {
+        if (y < 60) newPage();
+        const src = `[${i+1}] ${sources[i].title} — ${sources[i].url}`;
+        const srcLines = wrapText(src, CHARS_PER_LINE);
+        for (const ln of srcLines) {
+          setColor(MUTED_RGB);
+          text(ln, MARGIN, y, 7.5);
+          y -= 11;
+        }
+        y -= 2;
+      }
     }
 
-    // ── Footer on every page ──────────────────────────────────────────────────
-    const range = doc.bufferedPageRange();
-    for (let i = 0; i < range.count; i++) {
-      doc.switchToPage(range.start + i);
-      const footerY = doc.page.height - 35;
-      doc.moveTo(50, footerY).lineTo(doc.page.width-50, footerY).stroke(BORDER);
-      doc.fill(MUTED).font("Helvetica").fontSize(7)
-         .text("LEZAH CAPITAL  ·  CONFIDENTIAL  ·  FOR INTERNAL USE ONLY", 50, footerY + 6, { align: "left", lineBreak: false });
-      doc.fill(MUTED).font("Helvetica").fontSize(7)
-         .text(date, 50, footerY + 6, { align: "right", lineBreak: false });
-      doc.fill(MUTED).font("Helvetica").fontSize(7)
-         .text(`${i+1} / ${range.count}`, 50, footerY + 15, { align: "center", lineBreak: false });
+    // Push last page
+    if (currentPage.length) pages.push(currentPage);
+
+    // ── Assemble PDF ──────────────────────────────────────────────────────────
+    const objects = [];
+    let objNum = 1;
+
+    function addObj(content) {
+      objects.push({ num: objNum++, content });
+      return objNum - 1;
     }
 
-    doc.end();
+    // Font objects
+    const f1Num = addObj(`<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>`);
+    const f2Num = addObj(`<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>`);
 
-    await new Promise(resolve => doc.on("end", resolve));
+    // Page content streams + page objects
+    const pageObjNums = [];
+    for (const pageContent of pages) {
+      const stream = pageContent.join("\n");
+      const streamNum = addObj(`<< /Length ${Buffer.byteLength(stream)} >>\nstream\n${stream}\nendstream`);
+      const resDict = `<< /Font << /F1 ${f1Num} 0 R /F2 ${f2Num} 0 R >> >>`;
 
-    const pdfBuffer = Buffer.concat(chunks);
+      // Footer in each page stream (added directly)
+      const footerY = 30;
+      const footerContent = [
+        `${MUTED_RGB} rg`,
+        `/F1 7 Tf`,
+        `BT /F1 7 Tf ${MARGIN} ${footerY} Td (LEZAH CAPITAL  .  CONFIDENTIAL  .  FOR INTERNAL USE ONLY) Tj ET`,
+        `BT /F1 7 Tf ${W - MARGIN - 60} ${footerY} Td (${date}) Tj ET`,
+      ].join("\n");
+      const footerStreamNum = addObj(`<< /Length ${Buffer.byteLength(footerContent)} >>\nstream\n${footerContent}\nendstream`);
+
+      const pageNum = addObj(`<< /Type /Page /MediaBox [0 0 ${W} ${H}] /Contents [${streamNum} 0 R ${footerStreamNum} 0 R] /Resources ${resDict} /Parent 999 0 R >>`);
+      pageObjNums.push(pageNum);
+    }
+
+    // Pages dict (num 999 is a placeholder -- we'll fix the reference)
+    const pagesNum = addObj(`<< /Type /Pages /Kids [${pageObjNums.map(n=>`${n} 0 R`).join(" ")}] /Count ${pages.length} >>`);
+
+    // Fix parent references in page objects
+    for (const n of pageObjNums) {
+      objects[n-1].content = objects[n-1].content.replace("/Parent 999 0 R", `/Parent ${pagesNum} 0 R`);
+    }
+
+    // Catalog
+    const catalogNum = addObj(`<< /Type /Catalog /Pages ${pagesNum} 0 R >>`);
+
+    // Build PDF bytes
+    let pdf = "%PDF-1.4\n";
+    const offsets = [];
+    for (const obj of objects) {
+      offsets.push(Buffer.byteLength(pdf));
+      pdf += `${obj.num} 0 obj\n${obj.content}\nendobj\n`;
+    }
+
+    const xrefOffset = Buffer.byteLength(pdf);
+    pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+    for (const off of offsets) {
+      pdf += `${String(off).padStart(10,"0")} 00000 n \n`;
+    }
+    pdf += `trailer\n<< /Size ${objects.length + 1} /Root ${catalogNum} 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
+
+    const pdfBuffer = Buffer.from(pdf, "latin1");
+    const safeName = (company || "Report").replace(/[^a-zA-Z0-9]/g, "_");
 
     return {
       statusCode: 200,
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="${company.replace(/[^a-zA-Z0-9]/g,"_")}_Lezah_Research.pdf"`,
+        "Content-Disposition": `attachment; filename="${safeName}_Lezah_Research.pdf"`,
       },
       body: pdfBuffer.toString("base64"),
       isBase64Encoded: true,
     };
 
   } catch(e) {
+    console.error(e);
     return { statusCode: 500, body: JSON.stringify({ error: e.message }) };
   }
 };
