@@ -1,0 +1,7 @@
+{
+  "name": "lezah-research-functions",
+  "version": "1.0.0",
+  "dependencies": {
+    "pdfkit": "^0.14.0"
+  }
+}
