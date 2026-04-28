@@ -333,6 +333,28 @@
 </div>
 
 <script>
+// Simple password protection
+(function() {
+  const PASSWORD = "lezahcap2026";
+  const STORAGE_KEY = "lezah_auth";
+  if (sessionStorage.getItem(STORAGE_KEY) === "true") return;
+  
+  function check() {
+    const entered = prompt("Lezah Capital Research -- Enter password:");
+    if (entered === null) {
+      document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;color:#8A9BAA;flex-direction:column;gap:12px;"><div>Access restricted.</div><button onclick="location.reload()" style="padding:8px 16px;cursor:pointer;">Try again</button></div>';
+      return;
+    }
+    if (entered === PASSWORD) {
+      sessionStorage.setItem(STORAGE_KEY, "true");
+    } else {
+      alert("Incorrect password. Please try again.");
+      check();
+    }
+  }
+  check();
+})();
+
 const SECTIONS = {
   snapshot: {
     label: "Company snapshot",
