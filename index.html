@@ -193,7 +193,7 @@
 <script>
 // Password protection
 (function() {
-  const PASSWORD = "lezahcap2026";
+  const PASSWORD = "lezah2024";
   const STORAGE_KEY = "lezah_auth";
   if (sessionStorage.getItem(STORAGE_KEY) === "true") return;
   function check() {
@@ -451,8 +451,7 @@ function downloadPDF() {
       .replace(/\*\*(.+?)\*\*/g,"$1")
       .replace(/\*(.+?)\*/g,"$1")
       .replace(/^[-]\s+/gm,"• ")
-      .replace(/
-{3,}/g,"\n\n")
+      .replace(/\n{3,}/g,"\n\n")
       .trim();
   }
 
