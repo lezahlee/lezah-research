@@ -158,7 +158,7 @@
       </div>
     </div>
     <button class="gen-btn" id="gen-btn" onclick="generate()">GENERATE REPORT</button>
-    <button class="dl-btn" id="dl-btn" onclick="downloadPDF()">DOWNLOAD PDF</button>
+    <button class="dl-btn" id="dl-btn" onclick="downloadReport()">DOWNLOAD REPORT</button>
     <div class="prog-wrap" id="prog-wrap">
       <div class="prog-bg"><div class="prog-fill" id="prog-fill"></div></div>
       <div class="prog-text" id="prog-text">Starting...</div>
@@ -432,113 +432,596 @@ async function generate() {
   dlBtn.style.display = "block";
 }
 
-function downloadPDF() {
-  const company = document.getElementById("company").value.trim();
-  const sector  = document.getElementById("sector").value.trim();
-  const date    = new Date().toLocaleDateString("en-US",{month:"long",day:"numeric",year:"numeric"});
+// ─────────────────────────────────────────────────────────────────────────────
+// REPORT OUTPUT GENERATOR
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Convert Claude's markdown output to clean HTML.
+ * Preserves bold, italic, numbered lists, and bullet lists.
+ * Does NOT strip formatting the way the old cleanMd() did.
+ */
+function mdToHtml(text) {
+  if (!text) return "";
+
+  const lines = text.split("\n");
+  const output = [];
+  let inUl = false;
+  let inOl = false;
+
+  function closeList() {
+    if (inUl) { output.push("</ul>"); inUl = false; }
+    if (inOl) { output.push("</ol>"); inOl = false; }
+  }
+
+  function inlineFormat(str) {
+    return str
+      // Bold before italic so **bold** doesn't get partially matched by *italic*
+      .replace(/\*\*\*(.+?)\*\*\*/g, "<strong><em>$1</em></strong>")
+      .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+      .replace(/\*(.+?)\*/g, "<em>$1</em>")
+      // Strip markdown headings (##, ###) -- convert to inline strong instead
+      .replace(/^#{1,6}\s+(.+)$/, "<strong>$1</strong>");
+  }
+
+  for (let i = 0; i < lines.length; i++) {
+    const raw = lines[i];
+    const trimmed = raw.trim();
+
+    // Blank line -- close any open list and emit paragraph break signal
+    if (!trimmed) {
+      closeList();
+      output.push("<br>");
+      continue;
+    }
+
+    // Numbered list item: "1. " or "1) "
+    const olMatch = trimmed.match(/^(\d+)[.)]\s+(.*)/);
+    if (olMatch) {
+      if (inUl) { output.push("</ul>"); inUl = false; }
+      if (!inOl) { output.push('<ol class="bullets">'); inOl = true; }
+      output.push(`<li>${inlineFormat(olMatch[2])}</li>`);
+      continue;
+    }
+
+    // Unordered list item: "- " or "* " or "• "
+    const ulMatch = trimmed.match(/^[-*•]\s+(.*)/);
+    if (ulMatch) {
+      if (inOl) { output.push("</ol>"); inOl = false; }
+      if (!inUl) { output.push('<ul class="bullets">'); inUl = true; }
+      output.push(`<li>${inlineFormat(ulMatch[1])}</li>`);
+      continue;
+    }
+
+    // Regular text line -- close any open list, emit as paragraph
+    closeList();
+    output.push(`<p>${inlineFormat(trimmed)}</p>`);
+  }
+
+  closeList();
+
+  // Remove consecutive <br> tags down to single, and trim leading/trailing <br>
+  return output.join("\n")
+    .replace(/(<br>\s*){2,}/g, "<br>")
+    .replace(/^(<br>\s*)+/, "")
+    .replace(/(<br>\s*)+$/, "");
+}
+
+/**
+ * Escape special HTML characters in plain strings (used for company name, etc.)
+ */
+function esc(str) {
+  return (str || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function downloadReport() {
+  const company  = document.getElementById("company").value.trim();
+  const sector   = document.getElementById("sector").value.trim();
+  const date     = new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
   const uniqueSources = allSources.filter((s,i,a) => a.findIndex(x => x.url===s.url)===i).slice(0,12);
 
   const SECTION_LABELS = {
-    snapshot:"Company Snapshot", market:"Market Sizing", competitive:"Competitive Landscape",
-    channel:"Channel & Distribution", consumer:"Consumer Trends",
-    supplychain:"Supply Chain & Raw Material Inputs", founder:"Founder Diligence",
-    management:"Management Team Overview", lezahfit:"Fit with Lezah Capital"
+    snapshot:    "Company Snapshot",
+    market:      "Market Sizing",
+    competitive: "Competitive Landscape",
+    channel:     "Channel & Distribution",
+    consumer:    "Consumer Trends",
+    supplychain: "Supply Chain & Raw Material Inputs",
+    founder:     "Founder Diligence",
+    management:  "Management Team Overview",
+    lezahfit:    "Fit with Lezah Capital"
   };
 
-  function cleanMd(text) {
-    return (text||"")
-      .replace(/#{1,6}\s+/g,"")
-      .replace(/\*\*(.+?)\*\*/g,"$1")
-      .replace(/\*(.+?)\*/g,"$1")
-      .replace(/^[-]\s+/gm,"• ")
-      .replace(/\n{3,}/g,"\n\n")
-      .trim();
-  }
+  // Section number counter (only counts sections that have content)
+  let secNum = 0;
 
   let sectionsHtml = "";
-  const ORDER = ["snapshot","market","competitive","channel","consumer","supplychain","founder","management","lezahfit"];
   for (const id of ORDER) {
     if (!results[id]) continue;
-    const cleaned = cleanMd(results[id]);
-    const paragraphs = cleaned.split("\n\n").map(p => {
-      const lines = p.split("\n").map(ln => {
-        if (ln.startsWith("• ")) return `<li>${ln.slice(2)}</li>`;
-        return `<p>${ln}</p>`;
-      });
-      const hasLi = lines.some(l => l.startsWith("<li>"));
-      if (hasLi) return `<ul>${lines.join("")}</ul>`;
-      return lines.join("");
-    }).join("");
+    secNum++;
+    const label  = SECTION_LABELS[id] || id;
+    const numStr = String(secNum).padStart(2, "0");
+    const body   = mdToHtml(results[id]);
+    const isVerdict = id === "lezahfit";
 
-    sectionsHtml += `
-      <div class="section">
-        <div class="section-head">${(SECTION_LABELS[id]||id).toUpperCase()}</div>
-        <div class="section-body">${paragraphs}</div>
+    if (isVerdict) {
+      // The Lezah Fit section gets the dark verdict treatment
+      sectionsHtml += `
+        <div class="verdict-section avoid-break">
+          <div class="verdict-eyebrow">
+            <span class="sec-num">§ ${numStr}</span>
+            ${esc(label).toUpperCase()}
+          </div>
+          <div class="verdict-body">${body}</div>
+        </div>`;
+    } else {
+      sectionsHtml += `
+        <div class="report-section avoid-break">
+          <h2 class="section-head">
+            <span class="sec-num">§ ${numStr}</span>
+            ${esc(label)}
+          </h2>
+          <div class="section-rule"></div>
+          <div class="section-body">${body}</div>
+        </div>`;
+    }
+  }
+
+  // Sources block
+  let sourcesHtml = "";
+  if (uniqueSources.length) {
+    const items = uniqueSources.map((s,i) =>
+      `<div class="source-item">[${i+1}] <a href="${esc(s.url)}" target="_blank">${esc(s.title)}</a></div>`
+    ).join("");
+    sourcesHtml = `
+      <div class="sources-block">
+        <div class="sources-rule"></div>
+        <div class="sources-label">SOURCES</div>
+        ${items}
       </div>`;
   }
 
-  let sourcesHtml = "";
-  if (uniqueSources.length) {
-    sourcesHtml = `<div class="sources"><div class="sources-title">SOURCES</div>` +
-      uniqueSources.map((s,i) => `<div class="source">[${i+1}] <a href="${s.url}">${s.title}</a></div>`).join("") +
-      `</div>`;
-  }
-
-  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
-<title>${company} -- Lezah Capital Research</title>
-<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@700&display=swap" rel="stylesheet">
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>${esc(company)} — Lezah Capital Research</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'Barlow', sans-serif; background: #fff; color: #1C2B3A; }
-  .header { background: #0D1B2A; padding: 20px 40px 16px; }
-  .logo-text { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 13px; color: #4EA8B4; letter-spacing: 0.06em; margin-bottom: 6px; }
-  .company-name { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 26px; color: #fff; letter-spacing: 0.02em; }
-  .sector { font-size: 11px; color: #4EA8B4; margin-top: 4px; letter-spacing: 0.06em; text-transform: uppercase; }
-  .tagline { background: #F4F6F8; padding: 8px 40px; font-size: 8px; color: #C49C52; letter-spacing: 0.1em; text-transform: uppercase; border-bottom: 1px solid #DDE3E8; }
-  .content { padding: 20px 40px 30px; }
-  .section { margin-bottom: 16px; border: 0.5px solid #DDE3E8; border-radius: 6px; overflow: hidden; page-break-inside: avoid; }
-  .section-head { background: #F4F6F8; padding: 8px 14px; font-size: 8px; font-weight: 600; color: #4EA8B4; letter-spacing: 0.1em; border-bottom: 0.5px solid #DDE3E8; border-left: 3px solid #4EA8B4; }
-  .section-body { padding: 12px 14px; font-size: 10px; line-height: 1.75; color: #1C2B3A; }
-  .section-body p { margin-bottom: 6px; }
-  .section-body p:last-child { margin-bottom: 0; }
-  .section-body ul { padding-left: 16px; margin-bottom: 6px; }
-  .section-body li { margin-bottom: 3px; }
-  .sources { margin-top: 20px; padding-top: 14px; border-top: 0.5px solid #DDE3E8; }
-  .sources-title { font-size: 8px; font-weight: 600; color: #8A9BAA; letter-spacing: 0.1em; margin-bottom: 8px; }
-  .source { font-size: 8.5px; color: #8A9BAA; margin-bottom: 4px; }
-  .source a { color: #4EA8B4; text-decoration: none; }
-  .footer { margin-top: 20px; padding: 10px 40px; border-top: 0.5px solid #DDE3E8; display: flex; justify-content: space-between; font-size: 8px; color: #8A9BAA; letter-spacing: 0.05em; text-transform: uppercase; }
-  @media print {
-    @page { margin: 0.5in; size: letter; }
-    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    .no-print { display: none; }
-    .section { page-break-inside: avoid; }
-  }
-</style>
-</head><body>
-<div class="no-print" style="background:#0D1B2A;color:#4EA8B4;padding:10px 40px;font-size:12px;font-family:Barlow,sans-serif;">
-  Print this page or save as PDF (File > Print > Save as PDF)
-  &nbsp;&nbsp;<button onclick="window.print()" style="background:#4EA8B4;color:#0D1B2A;border:none;padding:6px 14px;cursor:pointer;font-weight:600;border-radius:4px;">Save as PDF</button>
-</div>
-<div class="header">
-  <div class="logo-text">LEZAH CAPITAL &nbsp;·&nbsp; A BUILDERS' FAMILY OFFICE</div>
-  <div class="company-name">${company.toUpperCase()}</div>
-  ${sector ? `<div class="sector">${sector}</div>` : ""}
-</div>
-<div class="tagline">Investment Research Report &nbsp;·&nbsp; Consumer / CPG &nbsp;·&nbsp; ${date}</div>
-<div class="content">
-  ${sectionsHtml}
-  ${sourcesHtml}
-</div>
-<div class="footer">
-  <span>Lezah Capital &nbsp;·&nbsp; Confidential &nbsp;·&nbsp; For Internal Use Only</span>
-  <span>${date}</span>
-</div>
-</body></html>`;
+/* ── Reset ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
 
-  const blob = new Blob([html], { type: "text/html" });
+/* ── Design tokens ── */
+:root {
+  --bg:        #faf6f0;
+  --bg-card:   #ffffff;
+  --bg-soft:   #f3ede2;
+  --ink:       #1a2332;
+  --ink-soft:  #4a5568;
+  --ink-muted: #718096;
+  --rule:      #d9cfbe;
+  --rule-soft: #ebe3d2;
+  --gold:      #c89b3a;
+  --gold-soft: #f5e6c0;
+  --green:     #2d6a4f;
+  --green-soft:#d4ebe0;
+  --red:       #c13727;
+  --red-soft:  #f5d7d1;
+  --blue:      #2c5282;
+  --blue-soft: #d4dfee;
+  --navy:      #0d1b2a;
+  --serif:     'Fraunces', Georgia, serif;
+  --sans:      'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* ── Base ── */
+body {
+  font-family: var(--sans);
+  background: var(--bg);
+  color: var(--ink);
+  line-height: 1.65;
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+}
+
+.container {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 0 36px 80px;
+}
+
+/* ── Print banner (hidden on print) ── */
+.print-banner {
+  background: var(--navy);
+  color: rgba(255,255,255,0.75);
+  padding: 10px 36px;
+  font-family: var(--sans);
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.print-banner button {
+  background: #4EA8B4;
+  color: var(--navy);
+  border: none;
+  padding: 6px 16px;
+  font-weight: 700;
+  font-size: 12px;
+  cursor: pointer;
+  border-radius: 3px;
+  font-family: var(--sans);
+  letter-spacing: 0.04em;
+}
+
+/* ── Masthead ── */
+.masthead {
+  padding: 36px 0 22px;
+  border-bottom: 2px solid var(--ink);
+  margin-bottom: 36px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+.masthead-left {}
+.eyebrow {
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+.masthead h1 {
+  font-family: var(--serif);
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+.masthead-meta {
+  font-size: 12px;
+  color: var(--ink-muted);
+  text-align: right;
+  line-height: 1.6;
+  font-variant-numeric: tabular-nums;
+}
+.masthead-meta strong {
+  color: var(--ink);
+  display: block;
+  font-weight: 600;
+}
+
+/* Company + sector block below masthead */
+.company-block {
+  margin-bottom: 44px;
+}
+.company-name {
+  font-family: var(--serif);
+  font-size: 46px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+  margin-bottom: 10px;
+}
+.company-sector {
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--gold);
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+.company-tagline {
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--rule);
+}
+
+/* ── Section headings ── */
+.report-section {
+  margin-bottom: 52px;
+}
+.section-head {
+  font-family: var(--serif);
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin: 0 0 8px;
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+.sec-num {
+  font-size: 13px;
+  color: var(--gold);
+  font-weight: 600;
+  font-family: var(--sans);
+  letter-spacing: 0.1em;
+  flex-shrink: 0;
+}
+.section-rule {
+  height: 1px;
+  background: var(--ink);
+  margin-bottom: 22px;
+}
+
+/* ── Body text ── */
+.section-body {
+  font-size: 16px;
+  line-height: 1.7;
+  color: var(--ink);
+}
+.section-body p {
+  margin-bottom: 14px;
+}
+.section-body p:last-child {
+  margin-bottom: 0;
+}
+.section-body br {
+  /* Used as paragraph separator; hide the raw line break */
+  display: block;
+  content: "";
+  margin-top: 10px;
+}
+.section-body strong {
+  font-weight: 600;
+  color: var(--ink);
+}
+.section-body em {
+  font-style: italic;
+}
+
+/* ── Lists ── */
+ul.bullets, ol.bullets {
+  list-style: none;
+  margin: 14px 0 18px;
+  padding: 0;
+}
+ul.bullets li, ol.bullets li {
+  position: relative;
+  padding-left: 22px;
+  margin-bottom: 9px;
+  font-size: 15.5px;
+  line-height: 1.65;
+  color: var(--ink-soft);
+}
+ul.bullets li strong, ol.bullets li strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+/* Custom bullet dot */
+ul.bullets li::before {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 10px;
+  width: 5px;
+  height: 5px;
+  background: var(--gold);
+  border-radius: 50%;
+}
+/* Numbered list counter */
+ol.bullets {
+  counter-reset: ol-counter;
+}
+ol.bullets li {
+  counter-increment: ol-counter;
+}
+ol.bullets li::before {
+  content: counter(ol-counter) ".";
+  position: absolute;
+  left: 0;
+  top: 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--gold);
+  line-height: 1.65;
+}
+
+/* ── Verdict / Lezah Fit block ── */
+.verdict-section {
+  background: var(--ink);
+  color: var(--bg);
+  padding: 32px 30px;
+  margin-bottom: 48px;
+  border-left: 6px solid var(--gold);
+}
+.verdict-eyebrow {
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--gold);
+  font-weight: 700;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.verdict-eyebrow .sec-num {
+  color: var(--gold);
+}
+.verdict-body {
+  font-size: 15px;
+  line-height: 1.75;
+  color: rgba(250, 246, 240, 0.88);
+}
+.verdict-body p {
+  margin-bottom: 12px;
+}
+.verdict-body p:last-child {
+  margin-bottom: 0;
+}
+.verdict-body strong {
+  color: #f5e6c0;
+  font-weight: 700;
+}
+.verdict-body em {
+  font-style: italic;
+  color: rgba(250, 246, 240, 0.75);
+}
+.verdict-body ul.bullets li,
+.verdict-body ol.bullets li {
+  color: rgba(250, 246, 240, 0.82);
+}
+.verdict-body ul.bullets li strong,
+.verdict-body ol.bullets li strong {
+  color: #f5e6c0;
+}
+.verdict-body ul.bullets li::before {
+  background: var(--gold);
+}
+.verdict-body ol.bullets li::before {
+  color: var(--gold);
+}
+
+/* ── Sources ── */
+.sources-block {
+  margin-top: 48px;
+}
+.sources-rule {
+  height: 1px;
+  background: var(--rule);
+  margin-bottom: 16px;
+}
+.sources-label {
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+.source-item {
+  font-size: 12px;
+  color: var(--ink-muted);
+  margin-bottom: 6px;
+  line-height: 1.5;
+}
+.source-item a {
+  color: var(--blue);
+  text-decoration: none;
+}
+.source-item a:hover {
+  text-decoration: underline;
+}
+
+/* ── Footer ── */
+.doc-footer {
+  margin-top: 52px;
+  padding-top: 18px;
+  border-top: 1px solid var(--rule);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 10px;
+  color: var(--ink-muted);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* ── Print styles ── */
+@media print {
+  @page {
+    margin: 0.6in 0.65in;
+    size: letter;
+  }
+  body {
+    background: #fff;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    font-size: 14px;
+  }
+  .print-banner {
+    display: none;
+  }
+  .container {
+    padding: 0;
+    max-width: 100%;
+  }
+  .avoid-break {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+  .report-section {
+    margin-bottom: 36px;
+  }
+  .verdict-section {
+    /* Force dark bg to print */
+    background: #1a2332 !important;
+    color: #faf6f0 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .masthead {
+    padding-top: 0;
+  }
+}
+</style>
+</head>
+<body>
+
+<div class="print-banner no-print">
+  Open File &gt; Print &gt; Save as PDF to export &nbsp;&nbsp;
+  <button onclick="window.print()">Save as PDF</button>
+</div>
+
+<div class="container">
+
+  <div class="masthead">
+    <div class="masthead-left">
+      <div class="eyebrow">Lezah Capital &nbsp;·&nbsp; Investment Research</div>
+      <h1>Research Report</h1>
+    </div>
+    <div class="masthead-meta">
+      <strong>Confidential — Internal Use Only</strong>
+      ${esc(date)}<br>
+      Prepared by Lezah Capital
+    </div>
+  </div>
+
+  <div class="company-block">
+    <div class="company-sector">${esc(sector) || "Consumer / CPG"}</div>
+    <div class="company-name">${esc(company)}</div>
+    <div class="company-tagline">Investment Research Report &nbsp;·&nbsp; ${esc(date)}</div>
+  </div>
+
+  ${sectionsHtml}
+
+  ${sourcesHtml}
+
+  <div class="doc-footer">
+    <span>Lezah Capital &nbsp;·&nbsp; Confidential &nbsp;·&nbsp; For Internal Use Only</span>
+    <span>${esc(date)}</span>
+  </div>
+
+</div>
+</body>
+</html>`;
+
+  const blob = new Blob([html], { type: "text/html;charset=utf-8" });
   const url  = URL.createObjectURL(blob);
-  window.open(url, "_blank");
+  const a    = document.createElement("a");
+  const safeName = (company || "Report").replace(/[^a-zA-Z0-9]/g, "_");
+  a.href     = url;
+  a.download = `${safeName}_Lezah_Research.html`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
 }
 </script>
 </body>
