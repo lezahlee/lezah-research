@@ -383,12 +383,16 @@ async function generate() {
 
   // Run web search first
   document.getElementById("prog-text").textContent = "Searching web for company information...";
-  const [r1, r2] = await Promise.all([
+  const [r1, r2, r3] = await Promise.all([
     searchSerper(`${company} company overview revenue funding`),
-    searchSerper(`${company} ${sector || "consumer"} founders management competitors`)
+    searchSerper(`${company} ${sector || "consumer"} founders management competitors`),
+    searchSerper(`"${company}" founder CEO founded by who started leadership team`)
   ]);
   const webContext = [extractContext(r1), extractContext(r2)].filter(Boolean).join("\n\n");
+  const leadershipContext = extractContext(r3);
   const fullContext = [context, webContext ? `Web research:\n${webContext}` : ""].filter(Boolean).join("\n\n");
+  // Founder/management sections get the targeted leadership search appended
+  const leadershipFullContext = [fullContext, leadershipContext ? `Leadership research:\n${leadershipContext}` : ""].filter(Boolean).join("\n\n");
 
   // Generate each section
   for (let i = 0; i < selected.length; i++) {
@@ -399,8 +403,9 @@ async function generate() {
     document.getElementById("st-" + id).textContent = "Generating...";
     document.getElementById("bd-" + id).textContent = "Researching...";
 
+    const isLeadershipSection = (id === "founder" || id === "management");
     try {
-      const text = await callClaude(SECTIONS[id].prompt(company, sector, fullContext));
+      const text = await callClaude(SECTIONS[id].prompt(company, sector, isLeadershipSection ? leadershipFullContext : fullContext));
       results[id] = text;
       const bd = document.getElementById("bd-" + id);
       bd.textContent = text;
