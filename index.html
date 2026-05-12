@@ -123,6 +123,19 @@
   .source-item a:hover { text-decoration: underline; }
   .divider { height: 0.5px; background: var(--border); margin: 1.5rem 0; }
   .confidential { font-size: 10px; color: var(--muted); text-align: center; letter-spacing: 0.06em; text-transform: uppercase; padding-top: 1rem; }
+  .type-switcher { display: flex; gap: 4px; margin-bottom: 4px; }
+  .type-btn {
+    flex: 1; padding: 7px 4px; font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700; font-size: 11px; letter-spacing: 0.06em; cursor: pointer;
+    border-radius: 5px; border: 0.5px solid rgba(78,168,180,0.3);
+    background: rgba(255,255,255,0.04); color: rgba(255,255,255,0.5);
+    transition: all 0.15s; text-align: center;
+  }
+  .type-btn.active { background: rgba(78,168,180,0.18); border-color: var(--teal); color: var(--white); }
+  .sections-panel { transition: opacity 0.15s; }
+  .sections-panel.hidden { opacity: 0.3; pointer-events: none; }
+  .platform-row { display: none; margin-top: 6px; }
+  .platform-row.visible { display: block; }
 </style>
 </head>
 <body>
@@ -142,8 +155,28 @@
       <div class="input-group"><label>Company name *</label><input type="text" id="company" placeholder="e.g. Schylling Inc." /></div>
       <div class="input-group"><label>Category / sector</label><input type="text" id="sector" placeholder="e.g. Novelty toys" /></div>
       <div class="input-group"><label>Context (optional)</label><textarea id="context" placeholder="e.g. Distributes NeeDoh fidget toys, ~$100mm revenue..."></textarea></div>
+      <div class="input-group">
+        <label>Business type</label>
+        <div class="type-switcher">
+          <div class="type-btn active" id="biz-platform" onclick="setBizType('platform')">PLATFORM</div>
+          <div class="type-btn" id="biz-addon" onclick="setBizType('addon')">ADD-ON</div>
+        </div>
+        <div class="platform-row" id="platform-row">
+          <div class="input-group" style="margin-top:6px;margin-bottom:0;">
+            <label>Add-on to which platform?</label>
+            <input type="text" id="platform-name" placeholder="e.g. Shopify, Salesforce, Amazon..." />
+          </div>
+        </div>
+      </div>
     </div>
     <div class="sidebar-section">
+      <div class="sidebar-label">Report type</div>
+      <div class="type-switcher">
+        <div class="type-btn active" id="type-longform" onclick="setReportType('longform')">LONG-FORM</div>
+        <div class="type-btn" id="type-onepager" onclick="setReportType('onepager')">1-PAGER</div>
+      </div>
+    </div>
+    <div class="sidebar-section sections-panel" id="sections-panel">
       <div class="sidebar-label">Sections</div>
       <div class="toggle-grid" id="toggle-grid">
         <div class="toggle on" data-id="snapshot" onclick="toggleSection(this)"><div class="toggle-check"></div><span class="toggle-name">Company snapshot</span></div>
@@ -155,10 +188,11 @@
         <div class="toggle on" data-id="founder" onclick="toggleSection(this)"><div class="toggle-check"></div><span class="toggle-name">Founder diligence</span></div>
         <div class="toggle on" data-id="management" onclick="toggleSection(this)"><div class="toggle-check"></div><span class="toggle-name">Management team</span></div>
         <div class="toggle on" data-id="lezahfit" onclick="toggleSection(this)"><div class="toggle-check"></div><span class="toggle-name">Fit with Lezah</span></div>
+        <div class="toggle" data-id="platformfit" id="toggle-platformfit" onclick="toggleSection(this)" style="display:none;"><div class="toggle-check"></div><span class="toggle-name">Strategic fit with platform</span></div>
       </div>
     </div>
     <button class="gen-btn" id="gen-btn" onclick="generate()">GENERATE REPORT</button>
-    <button class="dl-btn" id="dl-btn" onclick="downloadReport()">DOWNLOAD REPORT</button>
+    <button class="dl-btn" id="dl-btn" onclick="reportType==='onepager'?download1Pager():downloadReport()">DOWNLOAD REPORT</button>
     <div class="prog-wrap" id="prog-wrap">
       <div class="prog-bg"><div class="prog-fill" id="prog-fill"></div></div>
       <div class="prog-text" id="prog-text">Starting...</div>
@@ -207,6 +241,49 @@
   }
   check();
 })();
+
+// ── Report type ───────────────────────────────────────────────────────────────
+let reportType = "longform"; // "longform" | "onepager"
+let onePagerData = null;     // holds parsed JSON from 1-pager generation
+let bizType = "platform";    // "platform" | "addon"
+
+function setBizType(type) {
+  bizType = type;
+  document.getElementById("biz-platform").classList.toggle("active", type === "platform");
+  document.getElementById("biz-addon").classList.toggle("active", type === "addon");
+  document.getElementById("platform-row").classList.toggle("visible", type === "addon");
+  // Show/hide the platformfit section toggle and auto-enable it when addon is selected
+  const pfToggle = document.getElementById("toggle-platformfit");
+  pfToggle.style.display = type === "addon" ? "flex" : "none";
+  if (type === "addon") pfToggle.classList.add("on");
+  else pfToggle.classList.remove("on");
+}
+
+function getPlatformName() {
+  return bizType === "addon" ? (document.getElementById("platform-name").value || "").trim() : "";
+}
+
+function getPlatformContext() {
+  if (bizType !== "addon") return "";
+  const p = getPlatformName();
+  return p
+    ? `Note: This target is being evaluated as a potential tuck-in acquisition to ${p}. A dedicated section will analyze strategic fit with ${p} specifically. For all other sections, analyze the target on its own standalone merits.`
+    : `Note: This target is being evaluated as a potential tuck-in acquisition to an existing platform company. A dedicated section will analyze that strategic fit specifically. For all other sections, analyze the target on its own standalone merits.`;
+}
+
+function setReportType(type) {
+  reportType = type;
+  document.getElementById("type-longform").classList.toggle("active", type === "longform");
+  document.getElementById("type-onepager").classList.toggle("active", type === "onepager");
+  document.getElementById("sections-panel").classList.toggle("hidden", type === "onepager");
+  document.getElementById("gen-btn").textContent = type === "onepager" ? "GENERATE 1-PAGER" : "GENERATE REPORT";
+  document.getElementById("dl-btn").textContent  = type === "onepager" ? "DOWNLOAD 1-PAGER" : "DOWNLOAD REPORT";
+  // Reset output area
+  document.getElementById("empty").style.display = "flex";
+  document.getElementById("report").style.display = "none";
+  document.getElementById("dl-btn").style.display = "none";
+  document.getElementById("prog-wrap").style.display = "none";
+}
 
 const SECTIONS = {
   snapshot: {
@@ -294,10 +371,36 @@ Assess fit for ${c}.${s?" Sector: "+s+".":""}${ctx?" Context: "+ctx+".":""}
 5. Overall verdict -- Strong fit, Potential fit, or Weak fit. What would need to be true to invest?
 
 Be direct and honest. This is internal. 400 words max.`
+  },
+  platformfit: {
+    label: "Strategic Fit with Platform",
+    prompt: (c,s,ctx,platform) => `You are an investment analyst advising Lezah Capital on a potential tuck-in acquisition. The target is ${c}.${s?" Sector: "+s+".":""}${ctx?" Context: "+ctx+".":""}
+
+The platform company being considered as the acquirer is: ${platform || "an existing consumer products platform"}.
+
+Analyze the strategic fit of ${c} as a tuck-in acquisition to ${platform || "the platform"}. This is NOT about platform dependency risk -- this is about whether acquiring ${c} makes the combined entity more valuable. Think about this the way a consumer products operator would: does adding this brand/product line expand what they can offer to the same buyers, manufacturing relationships, and distribution infrastructure they already have?
+
+Cover:
+
+1. Tuck-in rationale -- why does ${c} make sense as an addition to ${platform || "the platform"}? What gap does it fill (product category, customer segment, price point, channel)?
+
+2. Revenue synergies -- shared retail buyers (can ${c}'s products get placed through ${platform || "the platform"}'s existing Walmart/Target/Amazon relationships?), cross-sell to existing customers, bundling or assortment opportunities, white-label or co-brand potential.
+
+3. Cost synergies -- shared manufacturing or sourcing (can ${c}'s COGS improve by plugging into ${platform || "the platform"}'s Asia supply chain?), G&A absorption (finance, HR, legal, IT), shared warehouse/logistics, consolidated marketing spend.
+
+4. Vertical vs. horizontal -- is this deepening the platform's position in its existing category (vertical), or expanding into an adjacent category (horizontal)? Which is it and does that fit the platform's strategy?
+
+5. Integration complexity -- how hard is this to integrate? Brand culture, systems, team retention, license/retailer consent requirements, any change of control issues?
+
+6. Build vs. buy -- could ${platform || "the platform"} have built this capability organically? Why is acquisition the right path vs. internal development or a distribution partnership?
+
+7. Combined entity value -- what does the pro forma look like? Does the acquisition improve the platform's EBITDA multiple, revenue quality, or strategic positioning for its own eventual exit?
+
+Be specific and honest. Use concrete examples where the Jazwares/Lezah operating background applies. 500 words max.`
   }
 };
 
-const ORDER = ["snapshot","market","competitive","channel","consumer","supplychain","founder","management","lezahfit"];
+const ORDER = ["snapshot","market","competitive","channel","consumer","supplychain","founder","management","lezahfit","platformfit"];
 let results = {};
 let allSources = [];
 
@@ -347,6 +450,8 @@ function extractContext(data) {
 }
 
 async function generate() {
+  if (reportType === "onepager") { await generate1Pager(); return; }
+
   const company = document.getElementById("company").value.trim();
   const sector  = document.getElementById("sector").value.trim();
   const context = document.getElementById("context").value.trim();
@@ -390,7 +495,8 @@ async function generate() {
   ]);
   const webContext = [extractContext(r1), extractContext(r2)].filter(Boolean).join("\n\n");
   const leadershipContext = extractContext(r3);
-  const fullContext = [context, webContext ? `Web research:\n${webContext}` : ""].filter(Boolean).join("\n\n");
+  const platformCtx = getPlatformContext();
+  const fullContext = [context, platformCtx, webContext ? `Web research:\n${webContext}` : ""].filter(Boolean).join("\n\n");
   // Founder/management sections get the targeted leadership search appended
   const leadershipFullContext = [fullContext, leadershipContext ? `Leadership research:\n${leadershipContext}` : ""].filter(Boolean).join("\n\n");
 
@@ -404,8 +510,18 @@ async function generate() {
     document.getElementById("bd-" + id).textContent = "Researching...";
 
     const isLeadershipSection = (id === "founder" || id === "management");
+    const isPlatformFit = (id === "platformfit");
     try {
-      const text = await callClaude(SECTIONS[id].prompt(company, sector, isLeadershipSection ? leadershipFullContext : fullContext));
+      const platformName = getPlatformName();
+      // Update label dynamically for platformfit
+      if (isPlatformFit && platformName) {
+        document.querySelector(`[data-id="platformfit"] .toggle-name`).textContent = `Strategic fit with ${platformName}`;
+        document.getElementById("st-platformfit") && (document.getElementById("st-platformfit").closest(".section-card").querySelector(".section-label-text").textContent = `Strategic Fit with ${platformName}`);
+      }
+      const ctx = isLeadershipSection ? leadershipFullContext : fullContext;
+      const text = isPlatformFit
+        ? await callClaude(SECTIONS[id].prompt(company, sector, ctx, platformName))
+        : await callClaude(SECTIONS[id].prompt(company, sector, ctx));
       results[id] = text;
       const bd = document.getElementById("bd-" + id);
       bd.textContent = text;
@@ -438,7 +554,408 @@ async function generate() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// REPORT OUTPUT GENERATOR
+// 1-PAGER GENERATOR
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function generate1Pager() {
+  const company = document.getElementById("company").value.trim();
+  const sector  = document.getElementById("sector").value.trim();
+  const context = document.getElementById("context").value.trim();
+  const platformName = getPlatformName();
+
+  if (!company) { alert("Please enter a company name."); return; }
+
+  onePagerData = null;
+  allSources = [];
+  const btn   = document.getElementById("gen-btn");
+  const dlBtn = document.getElementById("dl-btn");
+  btn.disabled = true; btn.textContent = "GENERATING...";
+  dlBtn.style.display = "none";
+
+  document.getElementById("empty").style.display = "none";
+  document.getElementById("report").style.display = "block";
+  document.getElementById("prog-wrap").style.display = "block";
+  document.getElementById("sources-section").style.display = "none";
+  document.getElementById("prog-fill").style.width = "0%";
+  document.getElementById("prog-text").textContent = "Searching web...";
+
+  // Render a simple status card in the preview area
+  const secContainer = document.getElementById("report-sections");
+  secContainer.innerHTML = `<div class="section-card"><div class="section-head"><span class="section-label-text">1-Pager</span><span class="section-status" id="st-onepager">Generating...</span></div><div class="section-body loading" id="bd-onepager">Researching ${esc(company)}...</div></div>`;
+  document.getElementById("r-company").textContent = company;
+  document.getElementById("r-sub").textContent = sector || "";
+  document.getElementById("r-meta").innerHTML = `Lezah Capital<br>${new Date().toLocaleDateString("en-US",{month:"long",day:"numeric",year:"numeric"})}`;
+
+  // Three targeted searches
+  const [r1, r2, r3] = await Promise.all([
+    searchSerper(`${company} company overview revenue funding`),
+    searchSerper(`${company} ${sector || "consumer"} founders management competitors`),
+    searchSerper(`"${company}" founder CEO founded by who started leadership team`)
+  ]);
+  const webContext = [extractContext(r1), extractContext(r2), extractContext(r3)].filter(Boolean).join("\n\n");
+  const platformCtx = getPlatformContext();
+  const fullContext = [context, platformCtx, webContext ? `Web research:\n${webContext}` : ""].filter(Boolean).join("\n\n");
+
+  document.getElementById("prog-fill").style.width = "40%";
+  document.getElementById("prog-text").textContent = "Generating 1-pager content...";
+
+  const onePagerPrompt = `You are a consumer/CPG investment analyst for Lezah Capital, a private family office founded by Judd and Laura Zebersky (formerly of Jazwares, a licensed consumer products company they scaled to hundreds of millions in revenue with major entertainment licenses and mass retail distribution).
+
+Generate a structured investment 1-pager for: ${company}.${sector ? " Sector: "+sector+"." : ""}${fullContext ? "\n\nContext and web research:\n"+fullContext : ""}
+
+Return ONLY a valid JSON object with exactly this structure (no markdown, no preamble, no trailing text):
+{
+  "company_name": "display name of the company",
+  "sector": "category label e.g. Housewares / Drinkware",
+  "location": "City, State or Country",
+  "fit_verdict": "Strong fit" or "Potential fit" or "Weak fit",
+  "sections": {
+    "Overview": "2-4 sentence overview of what the company does, who they serve, and their model. No bullet points.",
+    "Business Model": "2-4 sentences on revenue model, channel mix, margin structure, key economics.",
+    "Market Opportunity": "2-4 sentences on TAM, growth drivers, and tailwinds relevant to this company.",
+    "Competitive Position": "2-4 sentences on competitive set and what this company's edge is.",
+    "Traction Signals": "2-4 sentences on revenue scale, growth signals, funding, retail presence, key milestones.",
+    "Management": "2-4 sentences on founding team, leadership background, ownership structure, key open questions."
+  },
+  "risks": [
+    {"title": "Risk 1 Title (4-6 words)", "body": "2-3 sentences describing this risk specifically for this company."},
+    {"title": "Risk 2 Title (4-6 words)", "body": "2-3 sentences describing this risk specifically for this company."},
+    {"title": "Risk 3 Title (4-6 words)", "body": "2-3 sentences describing this risk specifically for this company."}
+  ],
+  "fit_text": "3-5 sentences on fit with Lezah Capital. Be specific about where Judd and Laura's Jazwares experience applies and where it does not. End with the single most important open question or next step."${platformName ? `,
+  "platform_fit": "Half-page analysis (~200 words) of ${company} as a tuck-in acquisition to ${platformName}. Cover: (1) tuck-in rationale -- what gap does ${company} fill in ${platformName}'s offering (product, customer, channel, price point)? (2) revenue synergies -- shared retail buyers, cross-sell, assortment expansion; (3) cost synergies -- shared sourcing/manufacturing, G&A absorption, logistics; (4) vertical vs horizontal -- is this deepening ${platformName}'s category or expanding into adjacent territory, and is that the right move? (5) one key integration risk or open question. Be concrete and operator-minded, not generic M&A language."` : ""}
+}
+
+Rules:
+- All text values are plain strings, no markdown formatting, no bullet points
+- location: best guess from available info; use 'Location Unknown' if truly not findable
+- fit_verdict must be exactly one of: Strong fit, Potential fit, Weak fit
+- risks array must have exactly 3 items
+- sections object must have exactly these 6 keys in order${platformName ? "\n- platform_fit must be included since this is an add-on evaluation" : ""}
+- Be direct and specific -- this is internal, not marketing copy`;
+
+  try {
+    const raw = await callClaude(onePagerPrompt);
+    // Strip any accidental markdown fences
+    const cleaned = raw.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```\s*$/i, "").trim();
+    onePagerData = JSON.parse(cleaned);
+
+    document.getElementById("prog-fill").style.width = "100%";
+    document.getElementById("prog-text").textContent = "1-pager complete.";
+
+    // Show preview in the section card
+    const bd = document.getElementById("bd-onepager");
+    bd.classList.remove("loading");
+    bd.style.whiteSpace = "normal";
+    bd.innerHTML = `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
+        ${Object.entries(onePagerData.sections).map(([k,v]) =>
+          `<div><strong style="font-size:10px;color:var(--teal);text-transform:uppercase;letter-spacing:0.08em;">${esc(k)}</strong><p style="font-size:12px;margin-top:3px;">${esc(v)}</p></div>`
+        ).join("")}
+      </div>
+      <div style="margin-bottom:6px;"><strong style="font-size:10px;color:var(--teal);text-transform:uppercase;letter-spacing:0.08em;">Key Risks</strong></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:8px;">
+        ${onePagerData.risks.map(r =>
+          `<div><strong style="font-size:11px;">${esc(r.title)}</strong><p style="font-size:11px;margin-top:2px;">${esc(r.body)}</p></div>`
+        ).join("")}
+      </div>
+      <div style="background:var(--navy);padding:10px;border-radius:4px;color:rgba(255,255,255,0.75);font-size:12px;">
+        <strong style="color:#4EA8B4;">${esc(onePagerData.fit_verdict)}.</strong> ${esc(onePagerData.fit_text)}
+      </div>
+      ${onePagerData.platform_fit ? `
+      <div style="margin-top:8px;"><strong style="font-size:10px;color:var(--gold);text-transform:uppercase;letter-spacing:0.08em;">Strategic Fit with ${esc(platformName || "Platform")}</strong></div>
+      <div style="background:#0d1f2e;border-left:3px solid var(--gold);padding:10px;border-radius:4px;color:rgba(200,220,225,0.88);font-size:12px;margin-top:4px;">${esc(onePagerData.platform_fit)}</div>
+      ` : ""}`;
+    document.getElementById("st-onepager").textContent = "Done";
+    document.getElementById("st-onepager").className = "section-status done";
+
+  } catch(e) {
+    document.getElementById("bd-onepager").textContent = "Error: " + e.message;
+    document.getElementById("bd-onepager").classList.remove("loading");
+    document.getElementById("bd-onepager").classList.add("error");
+    document.getElementById("st-onepager").textContent = "Error";
+    document.getElementById("st-onepager").className = "section-status err";
+    btn.disabled = false; btn.textContent = "GENERATE 1-PAGER";
+    return;
+  }
+
+  btn.disabled = false; btn.textContent = "REGENERATE";
+  dlBtn.style.display = "block";
+}
+
+function download1Pager() {
+  if (!onePagerData) return;
+  const d = onePagerData;
+  const date = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+
+  const fitColor = d.fit_verdict === "Strong fit" ? "#4EA8B4" :
+                   d.fit_verdict === "Potential fit" ? "#C49C52" : "#C0392B";
+
+  const sectionCards = Object.entries(d.sections).map(([title, body]) => `
+    <div class="sec-card">
+      <div class="sec-label">${esc(title).toUpperCase()}</div>
+      <div class="sec-rule"></div>
+      <div class="sec-body">${esc(body)}</div>
+    </div>`).join("");
+
+  const riskCards = d.risks.map(r => `
+    <div class="risk-card">
+      <div class="risk-label">${esc(r.title).toUpperCase()}</div>
+      <div class="risk-rule"></div>
+      <div class="risk-body">${esc(r.body)}</div>
+    </div>`).join("");
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>${esc(d.company_name)} — Lezah Capital 1-Pager</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@600;700;800&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --navy: #0D1B2A; --navy-mid: #1A3040;
+  --teal: #4EA8B4; --gold: #C49C52;
+  --white: #FFFFFF; --body: #1C2B3A;
+  --muted: #8A9BAA; --border: #DDE3E8;
+  --bg-card: #FFFFFF; --bg-risk: #F5F7F8;
+  --fit-txt: #A8C8CC;
+}
+body {
+  font-family: 'Barlow', sans-serif;
+  background: #f0f2f4;
+  color: var(--body);
+  -webkit-font-smoothing: antialiased;
+}
+.print-banner {
+  background: var(--navy); color: rgba(255,255,255,0.75);
+  padding: 9px 24px; font-size: 12px;
+  display: flex; align-items: center; gap: 14px;
+}
+.print-banner button {
+  background: var(--teal); color: var(--navy); border: none;
+  padding: 5px 14px; font-weight: 700; font-size: 11px;
+  cursor: pointer; border-radius: 3px; font-family: 'Barlow', sans-serif;
+  letter-spacing: 0.04em;
+}
+.page {
+  width: 8.5in;
+  min-height: 11in;
+  margin: 20px auto;
+  background: white;
+  padding: 0.32in 0.4in 0.32in;
+  display: flex;
+  flex-direction: column;
+}
+/* ── Header ── */
+.header {
+  background: var(--navy);
+  border-radius: 6px;
+  padding: 0 14px;
+  height: 72px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 5px;
+  flex-shrink: 0;
+}
+.header-left {
+  display: flex; align-items: center; gap: 10px;
+}
+.logo-icon svg { width: 32px; height: 32px; }
+.logo-wordmark {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 700; font-size: 17px; color: var(--teal);
+  letter-spacing: 0.08em;
+}
+.header-right { text-align: right; }
+.company-name-h {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 800; font-size: 22px; color: var(--white);
+  letter-spacing: 0.04em; text-transform: uppercase;
+  margin-bottom: 4px;
+}
+.badges { display: flex; gap: 5px; justify-content: flex-end; }
+.badge {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 700; font-size: 7px; letter-spacing: 0.08em;
+  padding: 3px 7px; border-radius: 3px;
+  text-transform: uppercase;
+}
+.badge-dark { background: var(--navy-mid); color: var(--teal); }
+.badge-fit  { background: var(--teal); color: var(--navy); }
+/* ── Tagline ── */
+.tagline {
+  font-size: 7.5px; color: var(--gold); letter-spacing: 1px;
+  text-transform: uppercase; margin-bottom: 6px; flex-shrink: 0;
+}
+/* ── Section grid ── */
+.section-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 7px;
+  margin-bottom: 7px;
+  flex-shrink: 0;
+}
+.sec-card {
+  border: 0.5px solid var(--border);
+  border-radius: 5px;
+  background: var(--bg-card);
+  padding: 9px 10px 8px 12px;
+}
+.sec-label {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 700; font-size: 7.5px; color: var(--teal);
+  letter-spacing: 0.8px; margin-bottom: 5px;
+}
+.sec-rule {
+  height: 0.5px; background: var(--border); margin-bottom: 6px;
+}
+.sec-body {
+  font-size: 7.5px; line-height: 10.5px; color: var(--body);
+}
+/* ── Key Risks ── */
+.risks-label {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 700; font-size: 7.5px; color: var(--teal);
+  letter-spacing: 0.8px; margin-bottom: 4px; flex-shrink: 0;
+}
+.risk-grid {
+  display: grid; grid-template-columns: 1fr 1fr 1fr;
+  gap: 7px; margin-bottom: 7px; flex-shrink: 0;
+}
+.risk-card {
+  border: 0.5px solid var(--border);
+  border-radius: 5px;
+  background: var(--bg-risk);
+  border-left: 3px solid var(--gold);
+  padding: 9px 10px 8px 10px;
+}
+.risk-label {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 700; font-size: 7.5px; color: var(--gold);
+  letter-spacing: 0.8px; margin-bottom: 5px;
+}
+.risk-rule { height: 0.5px; background: var(--border); margin-bottom: 6px; }
+.risk-body { font-size: 7.5px; line-height: 10.5px; color: var(--body); }
+/* ── Lezah Fit ── */
+.fit-label {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 700; font-size: 7.5px; color: var(--teal);
+  letter-spacing: 0.8px; margin-bottom: 4px; flex-shrink: 0;
+}
+.fit-box {
+  background: var(--navy); border-radius: 5px;
+  padding: 10px 14px; margin-bottom: 7px; flex-shrink: 0;
+}
+.fit-text {
+  font-size: 7.5px; line-height: 11px; color: var(--fit-txt);
+}
+.fit-verdict {
+  font-weight: 700; color: var(--teal);
+}
+/* ── Platform fit ── */
+.platform-fit-label {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 700; font-size: 7.5px; color: var(--gold);
+  letter-spacing: 0.8px; margin-bottom: 4px; flex-shrink: 0;
+}
+.platform-fit-box {
+  background: #0d1f2e; border-left: 3px solid var(--gold);
+  border-radius: 5px; padding: 10px 14px; margin-bottom: 7px; flex-shrink: 0;
+}
+.platform-fit-text {
+  font-size: 7.5px; line-height: 11px; color: rgba(200,220,225,0.88);
+}
+  border-top: 0.5px solid var(--border);
+  padding-top: 5px;
+  display: flex; justify-content: space-between;
+  font-size: 7px; color: var(--muted);
+  letter-spacing: 0.06em; text-transform: uppercase;
+  flex-shrink: 0; margin-top: auto;
+}
+/* ── Print ── */
+@media print {
+  @page { margin: 0; size: letter; }
+  body { background: white; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .print-banner { display: none; }
+  .page { margin: 0; width: 100%; min-height: 0; padding: 0.32in 0.4in; }
+  .header { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .fit-box { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .risk-card { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .platform-fit-box { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
+</style>
+</head>
+<body>
+<div class="print-banner">
+  Open File &gt; Print &gt; Save as PDF to export &nbsp;&nbsp;
+  <button onclick="window.print()">Save as PDF</button>
+</div>
+<div class="page">
+
+  <div class="header">
+    <div class="header-left">
+      <div class="logo-icon">
+        <svg viewBox="0 0 32 32" fill="none">
+          <polygon points="6,32 16,4 26,32 21,32 16,18 11,32" fill="#4EA8B4"/>
+          <rect x="6" y="25" width="15" height="5" rx="1" fill="#4EA8B4"/>
+        </svg>
+      </div>
+      <div class="logo-wordmark">LEZAH CAPITAL</div>
+    </div>
+    <div class="header-right">
+      <div class="company-name-h">${esc(d.company_name)}</div>
+      <div class="badges">
+        ${d.sector ? `<span class="badge badge-dark">${esc(d.sector).toUpperCase()}</span>` : ""}
+        ${d.location && d.location !== "Location Unknown" ? `<span class="badge badge-dark">${esc(d.location).toUpperCase()}</span>` : ""}
+        <span class="badge badge-fit" style="background:${fitColor};">${esc(d.fit_verdict).toUpperCase()}</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="tagline">INVESTMENT 1-PAGER &nbsp;·&nbsp; CONSUMER / CPG &nbsp;·&nbsp; ${esc(date)}</div>
+
+  <div class="section-grid">
+    ${sectionCards}
+  </div>
+
+  <div class="risks-label">KEY RISKS</div>
+  <div class="risk-grid">
+    ${riskCards}
+  </div>
+
+  <div class="fit-label">LEZAH FIT</div>
+  <div class="fit-box">
+    <span class="fit-text"><span class="fit-verdict">${esc(d.fit_verdict)}.</span> ${esc(d.fit_text)}</span>
+  </div>
+
+  ${d.platform_fit ? `
+  <div class="platform-fit-label">STRATEGIC FIT WITH ${esc(getPlatformName() || "PLATFORM").toUpperCase()}</div>
+  <div class="platform-fit-box">
+    <span class="platform-fit-text">${esc(d.platform_fit)}</span>
+  </div>` : ""}
+
+  <div class="footer">
+    <span>Lezah Capital &nbsp;·&nbsp; Confidential &nbsp;·&nbsp; For Internal Use Only</span>
+    <span>${esc(date)}</span>
+  </div>
+
+</div>
+</body>
+</html>`;
+
+  const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement("a");
+  const safeName = (d.company_name || "Company").replace(/[^a-zA-Z0-9]/g, "_");
+  a.href = url; a.download = `${safeName}_Lezah_1Pager.html`; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LONG-FORM REPORT OUTPUT GENERATOR
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
@@ -538,7 +1055,8 @@ function downloadReport() {
     supplychain: "Supply Chain & Raw Material Inputs",
     founder:     "Founder Diligence",
     management:  "Management Team Overview",
-    lezahfit:    "Fit with Lezah Capital"
+    lezahfit:    "Fit with Lezah Capital",
+    platformfit: getPlatformName() ? `Strategic Fit with ${getPlatformName()}` : "Strategic Fit with Platform"
   };
 
   // Section number counter (only counts sections that have content)
