@@ -418,6 +418,17 @@ async function callClaude(prompt) {
   return data.content[0].text;
 }
 
+async function callClaudeOnePager(prompt) {
+  const res = await fetch("/.netlify/functions/claude", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ model: "claude-sonnet-4-5", max_tokens: 2500, messages: [{ role: "user", content: prompt }] })
+  });
+  const data = await res.json();
+  if (data.error) throw new Error(data.error.message);
+  return data.content[0].text;
+}
+
 async function searchSerper(query) {
   try {
     const res = await fetch("/.netlify/functions/search", {
@@ -635,9 +646,18 @@ Rules:
 - Be direct and specific -- this is internal, not marketing copy`;
 
   try {
-    const raw = await callClaude(onePagerPrompt);
-    // Strip any accidental markdown fences
-    const cleaned = raw.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```\s*$/i, "").trim();
+    const raw = await callClaudeOnePager(onePagerPrompt);
+    // Strip markdown fences, then sanitize control characters that break JSON.parse
+    const cleaned = raw
+      .replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```\s*$/i, "")
+      .replace(/[\u0000-\u001F\u007F]/g, (ch) => {
+        // Keep legitimate JSON whitespace escapes, replace real control chars
+        if (ch === "\n") return "\\n";
+        if (ch === "\r") return "\\r";
+        if (ch === "\t") return "\\t";
+        return "";
+      })
+      .trim();
     onePagerData = JSON.parse(cleaned);
 
     document.getElementById("prog-fill").style.width = "100%";
