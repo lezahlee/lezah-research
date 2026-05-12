@@ -413,21 +413,17 @@ async function callClaude(prompt) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ model: "claude-sonnet-4-5", max_tokens: 1000, messages: [{ role: "user", content: prompt }] })
   });
-  const data = await res.json();
+  const text = await res.text();
+  if (text.trim().startsWith("<")) {
+    throw new Error(`Netlify function error (HTTP ${res.status}). The function may have timed out.`);
+  }
+  const data = JSON.parse(text);
   if (data.error) throw new Error(data.error.message);
   return data.content[0].text;
 }
 
-async function callClaudeOnePager(prompt) {
-  const res = await fetch("/.netlify/functions/claude", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ model: "claude-sonnet-4-5", max_tokens: 1500, messages: [{ role: "user", content: prompt }] })
-  });
-  const data = await res.json();
-  if (data.error) throw new Error(data.error.message);
-  return data.content[0].text;
-}
+
+
 
 async function searchSerper(query) {
   try {
@@ -568,18 +564,96 @@ async function generate() {
 // 1-PAGER GENERATOR
 // ─────────────────────────────────────────────────────────────────────────────
 
+const ONE_PAGER_FIELDS = [
+  {
+    id: "meta",
+    label: "Company info",
+    prompt: (c,s,ctx) => `You are a consumer/CPG investment analyst for Lezah Capital. For the company: ${c}.${s?" Sector: "+s+".":""}${ctx?" Context: "+ctx+".":""}
+
+Return exactly 3 lines, no other text:
+Line 1: The display company name
+Line 2: The sector/category label (e.g. Housewares / Drinkware)
+Line 3: City, State location (write Unknown if not findable)
+Line 4: Fit verdict -- write exactly one of: Strong fit, Potential fit, Weak fit`
+  },
+  {
+    id: "overview",
+    label: "Overview",
+    prompt: (c,s,ctx) => `You are a consumer/CPG investment analyst for Lezah Capital. Write 2-4 sentences (plain prose, no bullets, no markdown, no headers) summarizing what ${c} does, who they serve, and their model.${s?" Sector: "+s+".":""}${ctx?" Context: "+ctx+".":""}`
+  },
+  {
+    id: "business_model",
+    label: "Business Model",
+    prompt: (c,s,ctx) => `You are a consumer/CPG investment analyst for Lezah Capital. Write 2-4 sentences (plain prose, no bullets, no markdown) on ${c}'s revenue model, channel mix, margin structure, and key economics.${s?" Sector: "+s+".":""}${ctx?" Context: "+ctx+".":""}`
+  },
+  {
+    id: "market_opportunity",
+    label: "Market Opportunity",
+    prompt: (c,s,ctx) => `You are a consumer/CPG investment analyst for Lezah Capital. Write 2-4 sentences (plain prose, no bullets, no markdown) on the market opportunity for ${c}: TAM, growth drivers, and tailwinds.${s?" Sector: "+s+".":""}${ctx?" Context: "+ctx+".":""}`
+  },
+  {
+    id: "competitive_position",
+    label: "Competitive Position",
+    prompt: (c,s,ctx) => `You are a consumer/CPG investment analyst for Lezah Capital. Write 2-4 sentences (plain prose, no bullets, no markdown) on ${c}'s competitive set and what their edge is.${s?" Sector: "+s+".":""}${ctx?" Context: "+ctx+".":""}`
+  },
+  {
+    id: "traction",
+    label: "Traction Signals",
+    prompt: (c,s,ctx) => `You are a consumer/CPG investment analyst for Lezah Capital. Write 2-4 sentences (plain prose, no bullets, no markdown) on ${c}'s traction: revenue scale, growth signals, funding, retail presence, key milestones.${s?" Sector: "+s+".":""}${ctx?" Context: "+ctx+".":""}`
+  },
+  {
+    id: "management",
+    label: "Management",
+    prompt: (c,s,ctx) => `You are a consumer/CPG investment analyst for Lezah Capital. Write 2-4 sentences (plain prose, no bullets, no markdown) on ${c}'s founding team, leadership background, ownership structure, and key open questions.${s?" Sector: "+s+".":""}${ctx?" Context: "+ctx+".":""}`
+  },
+  {
+    id: "risk1",
+    label: "Risk 1",
+    prompt: (c,s,ctx) => `You are a consumer/CPG investment analyst for Lezah Capital. Identify the single most important investment risk for ${c}.${s?" Sector: "+s+".":""}${ctx?" Context: "+ctx+".":""}
+
+Return exactly 2 lines, no other text:
+Line 1: Risk title (4-6 words, all caps)
+Line 2: 2-3 sentences describing this risk specifically.`
+  },
+  {
+    id: "risk2",
+    label: "Risk 2",
+    prompt: (c,s,ctx) => `You are a consumer/CPG investment analyst for Lezah Capital. Identify the second most important investment risk for ${c}.${s?" Sector: "+s+".":""}${ctx?" Context: "+ctx+".":""}
+
+Return exactly 2 lines, no other text:
+Line 1: Risk title (4-6 words, all caps) -- must be different from the most important risk
+Line 2: 2-3 sentences describing this risk specifically.`
+  },
+  {
+    id: "risk3",
+    label: "Risk 3",
+    prompt: (c,s,ctx) => `You are a consumer/CPG investment analyst for Lezah Capital. Identify the third most important investment risk for ${c}.${s?" Sector: "+s+".":""}${ctx?" Context: "+ctx+".":""}
+
+Return exactly 2 lines, no other text:
+Line 1: Risk title (4-6 words, all caps) -- must be different from the first two risks
+Line 2: 2-3 sentences describing this risk specifically.`
+  },
+  {
+    id: "fit_text",
+    label: "Lezah Fit",
+    prompt: (c,s,ctx) => `You are an investment analyst advising Lezah Capital, founded by Judd and Laura Zebersky (formerly Jazwares). Their background: scaling a consumer products company to hundreds of millions in revenue, major entertainment licenses (Pokemon, Peppa Pig, Roblox), deep Walmart/Target/Amazon relationships, global Asia supply chain, professionalizing founder-led businesses.
+
+Write 3-5 sentences (plain prose, no bullets, no markdown) on fit between ${c} and Lezah Capital. Be specific about where Jazwares experience applies and where it does not. End with the single most important open question or next step.${s?" Sector: "+s+".":""}${ctx?" Context: "+ctx+".":""}`
+  }
+];
+
 async function generate1Pager() {
-  const company = document.getElementById("company").value.trim();
-  const sector  = document.getElementById("sector").value.trim();
-  const context = document.getElementById("context").value.trim();
+  const company      = document.getElementById("company").value.trim();
+  const sector       = document.getElementById("sector").value.trim();
+  const context      = document.getElementById("context").value.trim();
   const platformName = getPlatformName();
 
   if (!company) { alert("Please enter a company name."); return; }
 
-  onePagerData = null;
-  allSources = [];
-  const btn   = document.getElementById("gen-btn");
-  const dlBtn = document.getElementById("dl-btn");
+  onePagerData = { sections: {}, risks: [] };
+  allSources   = [];
+  const btn    = document.getElementById("gen-btn");
+  const dlBtn  = document.getElementById("dl-btn");
   btn.disabled = true; btn.textContent = "GENERATING...";
   dlBtn.style.display = "none";
 
@@ -590,150 +664,108 @@ async function generate1Pager() {
   document.getElementById("prog-fill").style.width = "0%";
   document.getElementById("prog-text").textContent = "Searching web...";
 
-  // Render a simple status card in the preview area
-  const secContainer = document.getElementById("report-sections");
-  secContainer.innerHTML = `<div class="section-card"><div class="section-head"><span class="section-label-text">1-Pager</span><span class="section-status" id="st-onepager">Generating...</span></div><div class="section-body loading" id="bd-onepager">Researching ${esc(company)}...</div></div>`;
   document.getElementById("r-company").textContent = company;
   document.getElementById("r-sub").textContent = sector || "";
   document.getElementById("r-meta").innerHTML = `Lezah Capital<br>${new Date().toLocaleDateString("en-US",{month:"long",day:"numeric",year:"numeric"})}`;
 
-  // Three targeted searches
+  // Render status cards
+  const secContainer = document.getElementById("report-sections");
+  secContainer.innerHTML = ONE_PAGER_FIELDS.filter(f => f.id !== "meta").map(f => `
+    <div class="report-section">
+      <div class="section-card">
+        <div class="section-head">
+          <span class="section-label-text">${f.label}</span>
+          <span class="section-status" id="st-1p-${f.id}">Queued</span>
+        </div>
+        <div class="section-body loading" id="bd-1p-${f.id}">Waiting...</div>
+      </div>
+    </div>`).join("");
+
+  // Web searches
   const [r1, r2, r3] = await Promise.all([
     searchSerper(`${company} company overview revenue funding`),
     searchSerper(`${company} ${sector || "consumer"} founders management competitors`),
     searchSerper(`"${company}" founder CEO founded by who started leadership team`)
   ]);
-  const webContext = [extractContext(r1), extractContext(r2), extractContext(r3)].filter(Boolean).join("\n\n");
+  const webContext  = [extractContext(r1), extractContext(r2), extractContext(r3)].filter(Boolean).join("\n\n");
   const platformCtx = getPlatformContext();
   const fullContext = [context, platformCtx, webContext ? `Web research:\n${webContext}` : ""].filter(Boolean).join("\n\n");
 
-  document.getElementById("prog-fill").style.width = "40%";
-  document.getElementById("prog-text").textContent = "Generating 1-pager content...";
+  const totalFields = ONE_PAGER_FIELDS.length + (platformName ? 1 : 0);
+  let   doneCount   = 0;
 
-  const onePagerPrompt = `You are a consumer/CPG investment analyst for Lezah Capital, a private family office founded by Judd and Laura Zebersky (formerly of Jazwares).
+  // Sequential calls -- one per field
+  for (const field of ONE_PAGER_FIELDS) {
+    doneCount++;
+    const pct = Math.round((doneCount / totalFields) * 100);
+    document.getElementById("prog-fill").style.width = pct + "%";
+    document.getElementById("prog-text").textContent = `Generating: ${field.label}...`;
 
-TASK: Generate a structured investment 1-pager for: ${company}.${sector ? " Sector: "+sector+"." : ""}
+    const statusEl = document.getElementById(`st-1p-${field.id}`);
+    const bodyEl   = document.getElementById(`bd-1p-${field.id}`);
+    if (statusEl) statusEl.textContent = "Generating...";
+    if (bodyEl)   bodyEl.textContent   = "Researching...";
 
-CRITICAL: Your entire response must be a single valid JSON object. No text before it. No text after it. No markdown. No backticks. Start your response with { and end with }.
-
-Use only straight double quotes for all JSON strings. Do not use apostrophes inside string values -- rephrase to avoid them. Do not use line breaks inside string values.
-
-JSON structure:
-{
-  "company_name": "string",
-  "sector": "string",
-  "location": "string",
-  "fit_verdict": "Strong fit",
-  "sections": {
-    "Overview": "string",
-    "Business Model": "string",
-    "Market Opportunity": "string",
-    "Competitive Position": "string",
-    "Traction Signals": "string",
-    "Management": "string"
-  },
-  "risks": [
-    {"title": "string", "body": "string"},
-    {"title": "string", "body": "string"},
-    {"title": "string", "body": "string"}
-  ],
-  "fit_text": "string"
-}
-
-Content requirements:
-- company_name: display name
-- sector: category label e.g. Housewares / Drinkware
-- location: City, State -- use Unknown if not findable
-- fit_verdict: must be exactly one of: Strong fit, Potential fit, Weak fit
-- sections: each value is 2-4 sentences of plain prose, no bullets, no markdown
-- risks: exactly 3 items; title is 4-6 words; body is 2-3 sentences
-- fit_text: 3-5 sentences on fit with Lezah Capital, specific to Jazwares experience
-
-Context and web research:
-${fullContext || "No additional context provided."}`;
-
-  try {
-    const raw = await callClaudeOnePager(onePagerPrompt);
-
-    // Aggressive cleaning pipeline:
-    // 1. Strip markdown fences
-    // 2. Find the first { and last } and extract just that substring
-    // 3. Replace curly/smart quotes with straight quotes
-    // 4. Sanitize literal control characters inside strings
-    let cleaned = raw
-      .replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```\s*$/i, "")
-      .trim();
-
-    // Extract only the JSON object -- discard any preamble or postamble
-    const firstBrace = cleaned.indexOf("{");
-    const lastBrace  = cleaned.lastIndexOf("}");
-    if (firstBrace === -1 || lastBrace === -1) {
-      throw new Error(`No JSON object found in response. Raw: ${cleaned.slice(0, 200)}`);
-    }
-    cleaned = cleaned.slice(firstBrace, lastBrace + 1);
-
-    // Replace smart/curly quotes with straight ASCII quotes
-    cleaned = cleaned
-      .replace(/[\u201C\u201D]/g, '"')
-      .replace(/[\u2018\u2019]/g, "\\'");
-
-    let parsed;
     try {
-      parsed = JSON.parse(cleaned);
-    } catch(jsonErr) {
-      throw new Error(`JSON parse failed: ${jsonErr.message}. First 300 chars: ${cleaned.slice(0, 300)}`);
+      const text = (await callClaude(field.prompt(company, sector, fullContext))).trim();
+
+      if (field.id === "meta") {
+        // Parse the 4-line meta response
+        const lines = text.split("\n").map(l => l.trim()).filter(Boolean);
+        onePagerData.company_name = lines[0] || company;
+        onePagerData.sector       = lines[1] || sector || "";
+        onePagerData.location     = lines[2] || "Unknown";
+        onePagerData.fit_verdict  = (lines[3] || "").replace(/^(Line \d+:\s*)?/i, "").trim();
+        if (!["Strong fit","Potential fit","Weak fit"].includes(onePagerData.fit_verdict)) {
+          // Fuzzy match
+          const v = onePagerData.fit_verdict.toLowerCase();
+          onePagerData.fit_verdict = v.includes("strong") ? "Strong fit" : v.includes("weak") ? "Weak fit" : "Potential fit";
+        }
+      } else if (field.id === "risk1" || field.id === "risk2" || field.id === "risk3") {
+        const lines = text.split("\n").map(l => l.trim()).filter(Boolean);
+        const risk = { title: lines[0] || field.label, body: lines.slice(1).join(" ") || text };
+        onePagerData.risks.push(risk);
+        if (bodyEl) { bodyEl.textContent = `${risk.title}: ${risk.body}`; bodyEl.classList.remove("loading"); }
+        if (statusEl) { statusEl.textContent = "Done"; statusEl.className = "section-status done"; }
+      } else if (field.id === "fit_text") {
+        onePagerData.fit_text = text;
+        if (bodyEl) { bodyEl.textContent = text; bodyEl.classList.remove("loading"); }
+        if (statusEl) { statusEl.textContent = "Done"; statusEl.className = "section-status done"; }
+      } else {
+        // Named section
+        const sectionKey = {
+          overview: "Overview", business_model: "Business Model",
+          market_opportunity: "Market Opportunity", competitive_position: "Competitive Position",
+          traction: "Traction Signals", management: "Management"
+        }[field.id];
+        onePagerData.sections[sectionKey] = text;
+        if (bodyEl) { bodyEl.textContent = text; bodyEl.classList.remove("loading"); }
+        if (statusEl) { statusEl.textContent = "Done"; statusEl.className = "section-status done"; }
+      }
+
+    } catch(e) {
+      if (bodyEl) { bodyEl.textContent = "Error: " + e.message; bodyEl.classList.remove("loading"); bodyEl.classList.add("error"); }
+      if (statusEl) { statusEl.textContent = "Error"; statusEl.className = "section-status err"; }
     }
-    onePagerData = parsed;
-
-    // If add-on mode, make a separate call for the platform fit analysis
-    if (platformName) {
-      document.getElementById("prog-text").textContent = `Analyzing fit with ${platformName}...`;
-      const platformFitPrompt = `You are an investment analyst advising Lezah Capital on a potential tuck-in acquisition. Write a concise strategic fit analysis (~200 words, plain prose, no bullet points, no markdown) of ${company} as a tuck-in acquisition to ${platformName}.${sector ? " Sector: "+sector+"." : ""}${fullContext ? "\n\nContext:\n"+fullContext : ""}
-
-Cover in flowing prose: (1) tuck-in rationale -- what gap does ${company} fill in ${platformName}'s offering; (2) revenue synergies -- shared retail buyers, cross-sell, assortment expansion; (3) cost synergies -- shared sourcing, G&A absorption, logistics; (4) vertical vs. horizontal -- is this deepening ${platformName}'s category or expanding adjacently; (5) one key integration risk or open question. Be concrete and operator-minded. Return only the prose paragraph, no headers, no JSON.`;
-      const platformFitText = await callClaude(platformFitPrompt);
-      onePagerData.platform_fit = platformFitText.trim();
-    }
-
-    document.getElementById("prog-fill").style.width = "100%";
-    document.getElementById("prog-text").textContent = "1-pager complete.";
-
-    // Show preview in the section card
-    const bd = document.getElementById("bd-onepager");
-    bd.classList.remove("loading");
-    bd.style.whiteSpace = "normal";
-    bd.innerHTML = `
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
-        ${Object.entries(onePagerData.sections).map(([k,v]) =>
-          `<div><strong style="font-size:10px;color:var(--teal);text-transform:uppercase;letter-spacing:0.08em;">${esc(k)}</strong><p style="font-size:12px;margin-top:3px;">${esc(v)}</p></div>`
-        ).join("")}
-      </div>
-      <div style="margin-bottom:6px;"><strong style="font-size:10px;color:var(--teal);text-transform:uppercase;letter-spacing:0.08em;">Key Risks</strong></div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:8px;">
-        ${onePagerData.risks.map(r =>
-          `<div><strong style="font-size:11px;">${esc(r.title)}</strong><p style="font-size:11px;margin-top:2px;">${esc(r.body)}</p></div>`
-        ).join("")}
-      </div>
-      <div style="background:var(--navy);padding:10px;border-radius:4px;color:rgba(255,255,255,0.75);font-size:12px;">
-        <strong style="color:#4EA8B4;">${esc(onePagerData.fit_verdict)}.</strong> ${esc(onePagerData.fit_text)}
-      </div>
-      ${onePagerData.platform_fit ? `
-      <div style="margin-top:8px;"><strong style="font-size:10px;color:var(--gold);text-transform:uppercase;letter-spacing:0.08em;">Strategic Fit with ${esc(platformName || "Platform")}</strong></div>
-      <div style="background:#0d1f2e;border-left:3px solid var(--gold);padding:10px;border-radius:4px;color:rgba(200,220,225,0.88);font-size:12px;margin-top:4px;">${esc(onePagerData.platform_fit)}</div>
-      ` : ""}`;
-    document.getElementById("st-onepager").textContent = "Done";
-    document.getElementById("st-onepager").className = "section-status done";
-
-  } catch(e) {
-    document.getElementById("bd-onepager").textContent = "Error: " + e.message;
-    document.getElementById("bd-onepager").classList.remove("loading");
-    document.getElementById("bd-onepager").classList.add("error");
-    document.getElementById("st-onepager").textContent = "Error";
-    document.getElementById("st-onepager").className = "section-status err";
-    btn.disabled = false; btn.textContent = "GENERATE 1-PAGER";
-    return;
   }
 
+  // Platform fit section if add-on mode
+  if (platformName) {
+    doneCount++;
+    document.getElementById("prog-fill").style.width = "95%";
+    document.getElementById("prog-text").textContent = `Analyzing fit with ${platformName}...`;
+    try {
+      const platformFitPrompt = `You are an investment analyst advising Lezah Capital on a potential tuck-in acquisition. Write a concise strategic fit analysis (3-5 sentences, plain prose, no bullets, no markdown) of ${company} as a tuck-in acquisition to ${platformName}.${sector?" Sector: "+sector+".":""}
+
+Cover: (1) what gap ${company} fills in ${platformName}'s offering; (2) revenue synergies -- shared retail buyers, cross-sell, assortment; (3) cost synergies -- shared sourcing, G&A absorption; (4) vertical vs horizontal -- deepening category or expanding adjacently; (5) one key integration risk. Be concrete and operator-minded.${fullContext?"\n\nContext:\n"+fullContext:""}`;
+      onePagerData.platform_fit = (await callClaude(platformFitPrompt)).trim();
+    } catch(e) {
+      onePagerData.platform_fit = "";
+    }
+  }
+
+  document.getElementById("prog-fill").style.width = "100%";
+  document.getElementById("prog-text").textContent = "1-pager complete.";
   btn.disabled = false; btn.textContent = "REGENERATE";
   dlBtn.style.display = "block";
 }
