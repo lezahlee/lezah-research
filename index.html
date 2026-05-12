@@ -674,16 +674,8 @@ ${fullContext || "No additional context provided."}`;
 
     // Replace smart/curly quotes with straight ASCII quotes
     cleaned = cleaned
-      .replace(/[\u201C\u201D]/g, '"')   // " "  -> "
-      .replace(/[\u2018\u2019]/g, "'");  // ' '  -> '
-
-    // Sanitize literal control characters that are illegal inside JSON strings
-    cleaned = cleaned.replace(/[\u0000-\u001F\u007F]/g, (ch) => {
-      if (ch === "\n") return "\\n";
-      if (ch === "\r") return "\\r";
-      if (ch === "\t") return "\\t";
-      return "";
-    });
+      .replace(/[\u201C\u201D]/g, '"')
+      .replace(/[\u2018\u2019]/g, "\\'");
 
     let parsed;
     try {
