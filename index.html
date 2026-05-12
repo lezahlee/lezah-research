@@ -422,7 +422,7 @@ async function callClaudeOnePager(prompt) {
   const res = await fetch("/.netlify/functions/claude", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ model: "claude-sonnet-4-5", max_tokens: 2500, messages: [{ role: "user", content: prompt }] })
+    body: JSON.stringify({ model: "claude-sonnet-4-5", max_tokens: 1500, messages: [{ role: "user", content: prompt }] })
   });
   const data = await res.json();
   if (data.error) throw new Error(data.error.message);
@@ -633,8 +633,7 @@ Return ONLY a valid JSON object with exactly this structure (no markdown, no pre
     {"title": "Risk 2 Title (4-6 words)", "body": "2-3 sentences describing this risk specifically for this company."},
     {"title": "Risk 3 Title (4-6 words)", "body": "2-3 sentences describing this risk specifically for this company."}
   ],
-  "fit_text": "3-5 sentences on fit with Lezah Capital. Be specific about where Judd and Laura's Jazwares experience applies and where it does not. End with the single most important open question or next step."${platformName ? `,
-  "platform_fit": "Half-page analysis (~200 words) of ${company} as a tuck-in acquisition to ${platformName}. Cover: (1) tuck-in rationale -- what gap does ${company} fill in ${platformName}'s offering (product, customer, channel, price point)? (2) revenue synergies -- shared retail buyers, cross-sell, assortment expansion; (3) cost synergies -- shared sourcing/manufacturing, G&A absorption, logistics; (4) vertical vs horizontal -- is this deepening ${platformName}'s category or expanding into adjacent territory, and is that the right move? (5) one key integration risk or open question. Be concrete and operator-minded, not generic M&A language."` : ""}
+  "fit_text": "3-5 sentences on fit with Lezah Capital. Be specific about where Judd and Laura's Jazwares experience applies and where it does not. End with the single most important open question or next step."
 }
 
 Rules:
@@ -642,7 +641,7 @@ Rules:
 - location: best guess from available info; use 'Location Unknown' if truly not findable
 - fit_verdict must be exactly one of: Strong fit, Potential fit, Weak fit
 - risks array must have exactly 3 items
-- sections object must have exactly these 6 keys in order${platformName ? "\n- platform_fit must be included since this is an add-on evaluation" : ""}
+- sections object must have exactly these 6 keys in order
 - Be direct and specific -- this is internal, not marketing copy`;
 
   try {
@@ -651,7 +650,6 @@ Rules:
     const cleaned = raw
       .replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```\s*$/i, "")
       .replace(/[\u0000-\u001F\u007F]/g, (ch) => {
-        // Keep legitimate JSON whitespace escapes, replace real control chars
         if (ch === "\n") return "\\n";
         if (ch === "\r") return "\\r";
         if (ch === "\t") return "\\t";
@@ -659,6 +657,16 @@ Rules:
       })
       .trim();
     onePagerData = JSON.parse(cleaned);
+
+    // If add-on mode, make a separate call for the platform fit analysis
+    if (platformName) {
+      document.getElementById("prog-text").textContent = `Analyzing fit with ${platformName}...`;
+      const platformFitPrompt = `You are an investment analyst advising Lezah Capital on a potential tuck-in acquisition. Write a concise strategic fit analysis (~200 words, plain prose, no bullet points, no markdown) of ${company} as a tuck-in acquisition to ${platformName}.${sector ? " Sector: "+sector+"." : ""}${fullContext ? "\n\nContext:\n"+fullContext : ""}
+
+Cover in flowing prose: (1) tuck-in rationale -- what gap does ${company} fill in ${platformName}'s offering; (2) revenue synergies -- shared retail buyers, cross-sell, assortment expansion; (3) cost synergies -- shared sourcing, G&A absorption, logistics; (4) vertical vs. horizontal -- is this deepening ${platformName}'s category or expanding adjacently; (5) one key integration risk or open question. Be concrete and operator-minded. Return only the prose paragraph, no headers, no JSON.`;
+      const platformFitText = await callClaude(platformFitPrompt);
+      onePagerData.platform_fit = platformFitText.trim();
+    }
 
     document.getElementById("prog-fill").style.width = "100%";
     document.getElementById("prog-text").textContent = "1-pager complete.";
