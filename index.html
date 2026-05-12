@@ -610,53 +610,88 @@ async function generate1Pager() {
   document.getElementById("prog-fill").style.width = "40%";
   document.getElementById("prog-text").textContent = "Generating 1-pager content...";
 
-  const onePagerPrompt = `You are a consumer/CPG investment analyst for Lezah Capital, a private family office founded by Judd and Laura Zebersky (formerly of Jazwares, a licensed consumer products company they scaled to hundreds of millions in revenue with major entertainment licenses and mass retail distribution).
+  const onePagerPrompt = `You are a consumer/CPG investment analyst for Lezah Capital, a private family office founded by Judd and Laura Zebersky (formerly of Jazwares).
 
-Generate a structured investment 1-pager for: ${company}.${sector ? " Sector: "+sector+"." : ""}${fullContext ? "\n\nContext and web research:\n"+fullContext : ""}
+TASK: Generate a structured investment 1-pager for: ${company}.${sector ? " Sector: "+sector+"." : ""}
 
-Return ONLY a valid JSON object with exactly this structure (no markdown, no preamble, no trailing text):
+CRITICAL: Your entire response must be a single valid JSON object. No text before it. No text after it. No markdown. No backticks. Start your response with { and end with }.
+
+Use only straight double quotes for all JSON strings. Do not use apostrophes inside string values -- rephrase to avoid them. Do not use line breaks inside string values.
+
+JSON structure:
 {
-  "company_name": "display name of the company",
-  "sector": "category label e.g. Housewares / Drinkware",
-  "location": "City, State or Country",
-  "fit_verdict": "Strong fit" or "Potential fit" or "Weak fit",
+  "company_name": "string",
+  "sector": "string",
+  "location": "string",
+  "fit_verdict": "Strong fit",
   "sections": {
-    "Overview": "2-4 sentence overview of what the company does, who they serve, and their model. No bullet points.",
-    "Business Model": "2-4 sentences on revenue model, channel mix, margin structure, key economics.",
-    "Market Opportunity": "2-4 sentences on TAM, growth drivers, and tailwinds relevant to this company.",
-    "Competitive Position": "2-4 sentences on competitive set and what this company's edge is.",
-    "Traction Signals": "2-4 sentences on revenue scale, growth signals, funding, retail presence, key milestones.",
-    "Management": "2-4 sentences on founding team, leadership background, ownership structure, key open questions."
+    "Overview": "string",
+    "Business Model": "string",
+    "Market Opportunity": "string",
+    "Competitive Position": "string",
+    "Traction Signals": "string",
+    "Management": "string"
   },
   "risks": [
-    {"title": "Risk 1 Title (4-6 words)", "body": "2-3 sentences describing this risk specifically for this company."},
-    {"title": "Risk 2 Title (4-6 words)", "body": "2-3 sentences describing this risk specifically for this company."},
-    {"title": "Risk 3 Title (4-6 words)", "body": "2-3 sentences describing this risk specifically for this company."}
+    {"title": "string", "body": "string"},
+    {"title": "string", "body": "string"},
+    {"title": "string", "body": "string"}
   ],
-  "fit_text": "3-5 sentences on fit with Lezah Capital. Be specific about where Judd and Laura's Jazwares experience applies and where it does not. End with the single most important open question or next step."
+  "fit_text": "string"
 }
 
-Rules:
-- All text values are plain strings, no markdown formatting, no bullet points
-- location: best guess from available info; use 'Location Unknown' if truly not findable
-- fit_verdict must be exactly one of: Strong fit, Potential fit, Weak fit
-- risks array must have exactly 3 items
-- sections object must have exactly these 6 keys in order
-- Be direct and specific -- this is internal, not marketing copy`;
+Content requirements:
+- company_name: display name
+- sector: category label e.g. Housewares / Drinkware
+- location: City, State -- use Unknown if not findable
+- fit_verdict: must be exactly one of: Strong fit, Potential fit, Weak fit
+- sections: each value is 2-4 sentences of plain prose, no bullets, no markdown
+- risks: exactly 3 items; title is 4-6 words; body is 2-3 sentences
+- fit_text: 3-5 sentences on fit with Lezah Capital, specific to Jazwares experience
+
+Context and web research:
+${fullContext || "No additional context provided."}`;
 
   try {
     const raw = await callClaudeOnePager(onePagerPrompt);
-    // Strip markdown fences, then sanitize control characters that break JSON.parse
-    const cleaned = raw
+
+    // Aggressive cleaning pipeline:
+    // 1. Strip markdown fences
+    // 2. Find the first { and last } and extract just that substring
+    // 3. Replace curly/smart quotes with straight quotes
+    // 4. Sanitize literal control characters inside strings
+    let cleaned = raw
       .replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```\s*$/i, "")
-      .replace(/[\u0000-\u001F\u007F]/g, (ch) => {
-        if (ch === "\n") return "\\n";
-        if (ch === "\r") return "\\r";
-        if (ch === "\t") return "\\t";
-        return "";
-      })
       .trim();
-    onePagerData = JSON.parse(cleaned);
+
+    // Extract only the JSON object -- discard any preamble or postamble
+    const firstBrace = cleaned.indexOf("{");
+    const lastBrace  = cleaned.lastIndexOf("}");
+    if (firstBrace === -1 || lastBrace === -1) {
+      throw new Error(`No JSON object found in response. Raw: ${cleaned.slice(0, 200)}`);
+    }
+    cleaned = cleaned.slice(firstBrace, lastBrace + 1);
+
+    // Replace smart/curly quotes with straight ASCII quotes
+    cleaned = cleaned
+      .replace(/[\u201C\u201D]/g, '"')   // " "  -> "
+      .replace(/[\u2018\u2019]/g, "'");  // ' '  -> '
+
+    // Sanitize literal control characters that are illegal inside JSON strings
+    cleaned = cleaned.replace(/[\u0000-\u001F\u007F]/g, (ch) => {
+      if (ch === "\n") return "\\n";
+      if (ch === "\r") return "\\r";
+      if (ch === "\t") return "\\t";
+      return "";
+    });
+
+    let parsed;
+    try {
+      parsed = JSON.parse(cleaned);
+    } catch(jsonErr) {
+      throw new Error(`JSON parse failed: ${jsonErr.message}. First 300 chars: ${cleaned.slice(0, 300)}`);
+    }
+    onePagerData = parsed;
 
     // If add-on mode, make a separate call for the platform fit analysis
     if (platformName) {
