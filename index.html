@@ -208,6 +208,7 @@
     <div class="report" id="report">
       <div class="report-top">
         <div>
+          <div id="r-tags" style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px;"></div>
           <div class="report-company" id="r-company"></div>
           <div style="font-size:12px;color:var(--muted);margin-top:3px;" id="r-sub"></div>
         </div>
@@ -404,6 +405,19 @@ const ORDER = ["snapshot","market","competitive","channel","consumer","supplycha
 let results = {};
 let allSources = [];
 
+function renderReportTags() {
+  const platformName = getPlatformName();
+  const tags = [
+    { label: reportType === "onepager" ? "1-Pager" : "Long-Form", color: "var(--teal)", bg: "rgba(78,168,180,0.15)" },
+    bizType === "addon"
+      ? { label: platformName ? `Add-on to ${platformName}` : "Add-on", color: "var(--gold)", bg: "rgba(196,156,82,0.15)" }
+      : { label: "Standalone", color: "var(--muted)", bg: "rgba(138,155,170,0.12)" }
+  ];
+  document.getElementById("r-tags").innerHTML = tags.map(t =>
+    `<span style="font-size:9px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;padding:3px 8px;border-radius:3px;background:${t.bg};color:${t.color};border:0.5px solid ${t.color};">${t.label}</span>`
+  ).join("");
+}
+
 function toggleSection(el) { el.classList.toggle("on"); }
 function getSelected() { return ORDER.filter(id => document.querySelector(`[data-id="${id}"]`).classList.contains("on")); }
 
@@ -482,6 +496,7 @@ async function generate() {
   document.getElementById("r-company").textContent = company;
   document.getElementById("r-sub").textContent = [sector, context ? context.slice(0,80)+"..." : ""].filter(Boolean).join(" · ");
   document.getElementById("r-meta").innerHTML = `Lezah Capital<br>${new Date().toLocaleDateString("en-US",{month:"long",day:"numeric",year:"numeric"})}`;
+  renderReportTags();
 
   const secContainer = document.getElementById("report-sections");
   secContainer.innerHTML = "";
@@ -667,6 +682,7 @@ async function generate1Pager() {
   document.getElementById("r-company").textContent = company;
   document.getElementById("r-sub").textContent = sector || "";
   document.getElementById("r-meta").innerHTML = `Lezah Capital<br>${new Date().toLocaleDateString("en-US",{month:"long",day:"numeric",year:"numeric"})}`;
+  renderReportTags();
 
   // Render status cards
   const secContainer = document.getElementById("report-sections");
